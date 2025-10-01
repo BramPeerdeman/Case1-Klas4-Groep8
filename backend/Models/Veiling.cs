@@ -1,4 +1,5 @@
-﻿public class Veiling
+﻿namespace backend.Models;
+public class Veiling
 {
     public int VeilingID { get; set; }
     public float VerkoopPrijs { get; set; }
