@@ -1,4 +1,9 @@
-﻿namespace backend.Models;
+﻿using System.Text.Json.Serialization;
+
+namespace backend.Models;
+[JsonDerivedType(typeof(Admin), "admin")]
+[JsonDerivedType(typeof(Veiler), "veiler")]
+[JsonDerivedType(typeof(Koper), "koper")]
 public abstract class Gebruiker
 {
     public int GebruikersID { get; set; }

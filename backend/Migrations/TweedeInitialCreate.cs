@@ -12,7 +12,7 @@ namespace backend.Migrations
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.CreateTable(
-                name: "Admins",
+                name: "Gebruikers",
                 columns: table => new
                 {
                     GebruikersID = table.Column<int>(type: "int", nullable: false)
@@ -26,7 +26,24 @@ namespace backend.Migrations
                 },
                 constraints: table =>
                 {
+                    table.PrimaryKey("PK_Gebruikers", x => x.GebruikersID);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Admins",
+                columns: table => new
+                {
+                    GebruikersID = table.Column<int>(type: "int", nullable: false)
+                },
+                constraints: table =>
+                {
                     table.PrimaryKey("PK_Admins", x => x.GebruikersID);
+                    table.ForeignKey(
+                        name: "FK_Admins_Gebruikers_GebruikersID",
+                        column: x => x.GebruikersID,
+                        principalTable: "Gebruikers",
+                        principalColumn: "GebruikersID",
+                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
@@ -34,35 +51,34 @@ namespace backend.Migrations
                 columns: table => new
                 {
                     GebruikersID = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
-                    Gebruikersnaam = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    Wachtwoord = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    Email = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    Voornaam = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    Achternaam = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    UiSettings = table.Column<string>(type: "nvarchar(max)", nullable: false)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_Kopers", x => x.GebruikersID);
+                    table.ForeignKey(
+                        name: "FK_Kopers_Gebruikers_GebruikersID",
+                        column: x => x.GebruikersID,
+                        principalTable: "Gebruikers",
+                        principalColumn: "GebruikersID",
+                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
                 name: "Veilers",
                 columns: table => new
                 {
-                    GebruikersID = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
-                    Gebruikersnaam = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    Wachtwoord = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    Email = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    Voornaam = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    Achternaam = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    UiSettings = table.Column<string>(type: "nvarchar(max)", nullable: false)
+                    GebruikersID = table.Column<int>(type: "int", nullable: false),
+                    KvkNummer = table.Column<string>(type: "nvarchar(max)", nullable: false)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_Veilers", x => x.GebruikersID);
+                    table.ForeignKey(
+                        name: "FK_Veilers_Gebruikers_GebruikersID",
+                        column: x => x.GebruikersID,
+                        principalTable: "Gebruikers",
+                        principalColumn: "GebruikersID",
+                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
@@ -150,6 +166,9 @@ namespace backend.Migrations
 
             migrationBuilder.DropTable(
                 name: "Veilers");
+
+            migrationBuilder.DropTable(
+                name: "Gebruikers");
         }
     }
 }

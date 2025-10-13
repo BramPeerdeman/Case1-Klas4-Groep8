@@ -12,7 +12,7 @@ using backend.Data;
 namespace backend.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20250929123653_InitialCreate")]
+    [Migration("20251013111115_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -25,7 +25,7 @@ namespace backend.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
-            modelBuilder.Entity("backend.Models.Admin", b =>
+            modelBuilder.Entity("backend.Models.Gebruiker", b =>
                 {
                     b.Property<int>("GebruikersID")
                         .ValueGeneratedOnAdd()
@@ -59,44 +59,9 @@ namespace backend.Migrations
 
                     b.HasKey("GebruikersID");
 
-                    b.ToTable("Admins");
-                });
+                    b.ToTable("Gebruikers", (string)null);
 
-            modelBuilder.Entity("backend.Models.Koper", b =>
-                {
-                    b.Property<int>("GebruikersID")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("GebruikersID"));
-
-                    b.Property<string>("Achternaam")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Email")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Gebruikersnaam")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("UiSettings")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Voornaam")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Wachtwoord")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.HasKey("GebruikersID");
-
-                    b.ToTable("Kopers");
+                    b.UseTptMappingStrategy();
                 });
 
             modelBuilder.Entity("backend.Models.Product", b =>
@@ -126,43 +91,6 @@ namespace backend.Migrations
                     b.HasIndex("VerkoperID");
 
                     b.ToTable("Producten");
-                });
-
-            modelBuilder.Entity("backend.Models.Veiler", b =>
-                {
-                    b.Property<int>("GebruikersID")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("GebruikersID"));
-
-                    b.Property<string>("Achternaam")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Email")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Gebruikersnaam")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("UiSettings")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Voornaam")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Wachtwoord")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.HasKey("GebruikersID");
-
-                    b.ToTable("Veilers");
                 });
 
             modelBuilder.Entity("backend.Models.Veiling", b =>
@@ -203,6 +131,31 @@ namespace backend.Migrations
                     b.ToTable("Veilingen");
                 });
 
+            modelBuilder.Entity("backend.Models.Admin", b =>
+                {
+                    b.HasBaseType("backend.Models.Gebruiker");
+
+                    b.ToTable("Admins", (string)null);
+                });
+
+            modelBuilder.Entity("backend.Models.Koper", b =>
+                {
+                    b.HasBaseType("backend.Models.Gebruiker");
+
+                    b.ToTable("Kopers", (string)null);
+                });
+
+            modelBuilder.Entity("backend.Models.Veiler", b =>
+                {
+                    b.HasBaseType("backend.Models.Gebruiker");
+
+                    b.Property<string>("KvkNummer")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.ToTable("Veilers", (string)null);
+                });
+
             modelBuilder.Entity("backend.Models.Product", b =>
                 {
                     b.HasOne("backend.Models.Veiler", "Verkoper")
@@ -231,14 +184,41 @@ namespace backend.Migrations
                     b.Navigation("Product");
                 });
 
+            modelBuilder.Entity("backend.Models.Admin", b =>
+                {
+                    b.HasOne("backend.Models.Gebruiker", null)
+                        .WithOne()
+                        .HasForeignKey("backend.Models.Admin", "GebruikersID")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("backend.Models.Koper", b =>
                 {
-                    b.Navigation("GewonnenVeilingen");
+                    b.HasOne("backend.Models.Gebruiker", null)
+                        .WithOne()
+                        .HasForeignKey("backend.Models.Koper", "GebruikersID")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("backend.Models.Veiler", b =>
+                {
+                    b.HasOne("backend.Models.Gebruiker", null)
+                        .WithOne()
+                        .HasForeignKey("backend.Models.Veiler", "GebruikersID")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("backend.Models.Product", b =>
                 {
                     b.Navigation("Veilingen");
+                });
+
+            modelBuilder.Entity("backend.Models.Koper", b =>
+                {
+                    b.Navigation("GewonnenVeilingen");
                 });
 
             modelBuilder.Entity("backend.Models.Veiler", b =>
