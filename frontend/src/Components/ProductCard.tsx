@@ -1,4 +1,5 @@
 import { Card, CardMedia, CardContent, Typography, CardActions, Button } from "@mui/material";
+import { useNavigate } from "react-router-dom";
 
 interface ProductProps {
   product: {
@@ -10,6 +11,11 @@ interface ProductProps {
 }
 
 export default function ProductCard({ product }: ProductProps) {
+  const navigate = useNavigate();
+  const handleView = () => {
+    navigate(`/klok/${product.id}`);
+  };
+
   return (
     <Card sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
       <CardMedia component="img" image={product.image} alt={product.name} height="200" />
@@ -18,7 +24,7 @@ export default function ProductCard({ product }: ProductProps) {
         <Typography color="text.secondary">{product.price}</Typography>
       </CardContent>
       <CardActions>
-        <Button size="small" variant="contained">
+        <Button size="small" variant="contained" onClick={handleView}>
           Bekijken
         </Button>
       </CardActions>
