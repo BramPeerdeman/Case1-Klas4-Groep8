@@ -5,6 +5,7 @@ import Home from "./Pages/Home";
 import About from "./Pages/About";
 import Contact from "./Pages/Contact";
 import LoginPage from "./Pages/Login";
+import Klok from "./Pages/Klok";
 
 function App() {
   return (
@@ -14,6 +15,7 @@ function App() {
           <Route path="/" element={<Home />} />
           <Route path="/about" element={<About />} />
           <Route path="/contact" element={<Contact />} />
+          <Route path="/klok/:id" element={<Klok />} />
         </Route>
 
         <Route element={<AuthLayout />}>

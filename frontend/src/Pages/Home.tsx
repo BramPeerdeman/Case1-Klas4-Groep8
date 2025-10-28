@@ -1,14 +1,6 @@
 import { Box, Container, Grid, Typography } from "@mui/material";
-import ProductCard from "../Components/Productcard";
-
-const dummyProducts = [
-  { id: 1, name: "Sneakers", price: "€89,99", image: "https://images.pexels.com/photos/992734/pexels-photo-992734.jpeg" },
-  { id: 2, name: "Koptelefoon", price: "€129,99", image: "https://images.pexels.com/photos/992734/pexels-photo-992734.jpeg" },
-  { id: 3, name: "Smartwatch", price: "€199,99", image: "https://images.pexels.com/photos/992734/pexels-photo-992734.jpeg" },
-  { id: 4, name: "Zonnebril", price: "€59,99", image: "https://images.pexels.com/photos/992734/pexels-photo-992734.jpeg" },
-  { id: 5, name: "Zonnebril", price: "€59,99", image: "https://images.pexels.com/photos/992734/pexels-photo-992734.jpeg" },
-  { id: 6, name: "Zonnebril", price: "€59,99", image: "https://images.pexels.com/photos/992734/pexels-photo-992734.jpeg" },
-];
+import ProductCard from "../Components/ProductCard";
+import { dummyProducts } from "../Data/dummyProducts";
 
 export default function Home() {
   return (
