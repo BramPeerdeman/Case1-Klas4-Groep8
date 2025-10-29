@@ -8,8 +8,8 @@ export default function About() {
   alt="FloraHolland online veiling"
   style={{ width: "100%", borderRadius: "12px" }}
 />
-  <p>"Wij willen hier bij bloemenveiling.nl de toekomst aanbieden voor alle bloemisten en teelers!"</p>
-  <p>"Tegenwoordig heeft iedereen een mobiel of computer en naast dat het slecht is voor het milieu wil niet iedereen reizen naar aalsmeer(FloraHolland) om daar biedingen te doen. Daarom hebben wij Bloemenveiling.nl ontwikkeld"</p>
+  <p>Wij willen hier bij bloemenveiling.nl de toekomst aanbieden voor alle bloemisten en teelers!</p>
+  <p>Tegenwoordig heeft iedereen een mobiel of computer en naast dat het slecht is voor het milieu wil niet iedereen reizen naar aalsmeer(FloraHolland) om daar biedingen te doen. Daarom hebben wij Bloemenveiling.nl ontwikkeld.</p>
   </>
   );
 }
