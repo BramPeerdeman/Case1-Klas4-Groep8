@@ -3,7 +3,7 @@ import { AppBar, Toolbar, Button, Box, Avatar, Menu, MenuItem, Typography } from
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../Contexts/AuthContext";
 
-const Navbar: React.FC = () => {
+export default function Navbar() {
   const { isLoggedIn, logout } = useAuth();
   const navigate = useNavigate();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
@@ -32,5 +32,3 @@ const Navbar: React.FC = () => {
     </AppBar>
   );
 };
-
-export default Navbar;

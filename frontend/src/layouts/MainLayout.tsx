@@ -1,6 +1,6 @@
 import { Container } from "@mui/material";
 import { Outlet } from "react-router-dom";
-import Navbar from "../Components/NavBar";
+import Navbar from "../Components/Navbar";
 import Footer from "../Components/Footer";
 
 const MainLayout: React.FC = () => (

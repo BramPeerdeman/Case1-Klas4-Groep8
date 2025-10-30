@@ -3,7 +3,7 @@ import { Container, Box, TextField, Button, Typography, Card, CardContent } from
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../Contexts/AuthContext";
 
-const LoginPage: React.FC = () => {
+export default function Login() {
   const navigate = useNavigate();
   const { isLoggedIn, login } = useAuth();
   const [email, setEmail] = useState<string>("");
@@ -29,5 +29,3 @@ const LoginPage: React.FC = () => {
     </Container>
   );
 };
-
-export default LoginPage;
