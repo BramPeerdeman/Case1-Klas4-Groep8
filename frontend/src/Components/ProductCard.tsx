@@ -10,7 +10,7 @@ interface ProductProps {
   };
 }
 
-export default function ProductCard({ product }: ProductProps) {
+const ProductCard: React.FC<ProductProps> = ({ product }) => {
   const navigate = useNavigate();
   const handleView = () => {
     navigate(`/klok/${product.id}`);
@@ -31,3 +31,5 @@ export default function ProductCard({ product }: ProductProps) {
     </Card>
   );
 }
+
+export default ProductCard;
