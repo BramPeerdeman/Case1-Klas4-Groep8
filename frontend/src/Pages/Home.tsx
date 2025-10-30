@@ -7,6 +7,8 @@ export default function Home() {
     <>
       {/* Hero Afbeelding */}
       <Box
+      role="img"
+      aria-label="Bloemen in de veilinghal bij FloraHolland"
         sx={{
           width: "100%",
           height: "400px",
