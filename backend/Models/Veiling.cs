@@ -9,8 +9,8 @@ public class Veiling
     public TimeSpan EindTijd { get; set; }
 
     public int ProductID { get; set; }
-    public Product Product { get; set; } = null!;
 
     public int? KoperID { get; set; } // null totdat iemand wint
-    public Koper? Koper { get; set; }
+
 }
+ 
