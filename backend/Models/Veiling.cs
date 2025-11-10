@@ -11,7 +11,8 @@ public class Veiling
 
     public int VerkoperID { get; set; }
 
-    public int? KoperID { get; set; } // null totdat iemand wint
+    public string? KoperId { get; set; }
+    public Koper? Koper { get; set; } 
 
 }
  
