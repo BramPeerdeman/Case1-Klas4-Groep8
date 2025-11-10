@@ -1,33 +1,32 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using backend.Models;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore; 
 
 namespace backend.Data
 {
-    public class AppDbContext : DbContext
+    public class AppDbContext : IdentityDbContext<Gebruiker>
     {
         public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
 
-        // Eén DbSet voor alle gebruikers
-        public DbSet<Gebruiker> Gebruikers => Set<Gebruiker>();
+        
         public DbSet<Product> Producten => Set<Product>();
         public DbSet<Veiling> Veilingen => Set<Veiling>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-            // Basis entiteit configureren
-            modelBuilder.Entity<Gebruiker>(entity =>
-            {
-                entity.HasKey(g => g.GebruikersID);
-                entity.ToTable("Gebruikers");
-            });
+            
+            base.OnModelCreating(modelBuilder); 
 
-            // Subtypes krijgen hun eigen tabellen met alleen hun extra velden
+           
+
+            
+            modelBuilder.Entity<Gebruiker>().ToTable("Gebruikers");
+
+            
             modelBuilder.Entity<Admin>().ToTable("Admins");
             modelBuilder.Entity<Veiler>().ToTable("Veilers");
             modelBuilder.Entity<Koper>().ToTable("Kopers");
-
-            base.OnModelCreating(modelBuilder);
         }
     }
-
 }

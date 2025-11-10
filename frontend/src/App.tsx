@@ -7,6 +7,7 @@ import Contact from "./Pages/Contact";
 import Klok from "./Pages/Klok";
 import LoginPage from "./Pages/Login";
 import ProtectedRoute from "./Components/ProtectedRoute";
+import Register from './Pages/Register';
 
 const App: React.FC = () => (
   <Router>
@@ -20,6 +21,7 @@ const App: React.FC = () => (
 
       <Route element={<AuthLayout />}>
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<Register />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />
