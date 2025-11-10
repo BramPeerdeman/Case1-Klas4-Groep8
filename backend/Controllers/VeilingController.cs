@@ -1,6 +1,10 @@
 ﻿using backend.Data;
 using backend.Models;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.SignalR;
+using backend.Hubs;
+
 
 namespace backend.Controllers
 {
@@ -9,15 +13,37 @@ namespace backend.Controllers
     public class VeilingController : ControllerBase
     {
         private readonly AppDbContext _context;
+        private readonly IHubContext<AuctionHub> _hub;
 
-        public VeilingController(AppDbContext context)
+        public VeilingController(AppDbContext context, IHubContext<AuctionHub> hub)
         {
             _context = context;
+            _hub = hub;
+        }
+
+        [HttpGet("veiling/currentprice")]
+        public async Task<IActionResult> PriceMovement(decimal prijs, decimal minprijs )
+        {
+            if (prijs > minprijs)
+            {
+                decimal nieuwePrijs = prijs - 2;
+                await _hub.Clients.All.SendAsync("PrijsUpdate", nieuwePrijs);
+                return Ok(new { nieuwePrijs });
+            }
+            return Ok();
+            
         }
 
         [HttpPost("veiling")]
-        public async Task<IActionResult> CreateVeiling([FromBody] Veiling veiling)
+        public async Task<IActionResult> StartVeiling([FromBody] Product GeveildProduct)
         {
+            Veiling veiling = new Veiling();
+            //VeilingID methode moet nader bepaald worden of in cont of in sqldb
+            veiling.StartDatumTijd = DateTime.Now;
+            veiling.VerkoperID = GeveildProduct.VerkoperID;
+            veiling.ProductID = GeveildProduct.ProductID;
+
+
             if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState);
@@ -27,6 +53,10 @@ namespace backend.Controllers
             await _context.SaveChangesAsync();
             return Ok(veiling);
         }
+
+
+
+
 
 
     }

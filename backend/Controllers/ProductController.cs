@@ -67,7 +67,7 @@ namespace backend.Controllers
 
         }
 
-        [HttpGet("product/list")]
+        [HttpGet("product/onveilbarelist")]
         public async Task<IActionResult> GetUnassignedProducts()
         {
             var ProductenZonderStartprijs = await _context.Producten
@@ -79,6 +79,20 @@ namespace backend.Controllers
                 return NotFound("geen producten zonder startprijs gevonden");
 
             return Ok(ProductenZonderStartprijs);
+        }
+
+        [HttpGet("product/veilbarelijst")]
+        public async Task<IActionResult> GetAuctionableProducts()
+        {
+            var veilbareProducten = await _context.Producten
+                .AsNoTracking()
+                .Where(p => p.StartPrijs != null)
+                .ToListAsync();
+
+            if (veilbareProducten == null || veilbareProducten.Count == 0)
+                return NotFound("geen veilbare producten gevonden");
+
+            return Ok(veilbareProducten);
         }
 
     }

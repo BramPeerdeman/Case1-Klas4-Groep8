@@ -1,4 +1,5 @@
 using backend.Data;
+using backend.Hubs;
 using backend.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
@@ -53,7 +54,7 @@ builder.Services.AddSwaggerGen(c =>
     c.SchemaFilter<GebruikerExampleFilter>();
 });
 
-
+builder.Services.AddSignalR();
 var app = builder.Build();
 
 // --- Middleware ---
@@ -68,7 +69,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseRouting();
-
+app.MapHub<AuctionHub>("/AuctionHub");
 app.MapControllers();
 
 app.Run();
