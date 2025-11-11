@@ -17,6 +17,16 @@ namespace backend.Controllers
             _context = context;
         }
 
+        [HttpGet("products")]
+
+        public async Task<IActionResult> GetAllProducts()
+        {
+            var products = await _context.Producten
+                .AsNoTracking()
+                .ToListAsync();
+            return Ok(products);
+        }
+
         [HttpGet("product/{id}")]
         public async Task<IActionResult> GetProductById(int id)
         {

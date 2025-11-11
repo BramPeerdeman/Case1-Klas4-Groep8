@@ -239,7 +239,6 @@ namespace backend.Migrations
                     b.Property<int>("ProductID")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
-
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ProductID"));
 
                     b.Property<string>("Beschrijving")
@@ -265,20 +264,20 @@ namespace backend.Migrations
                     b.Property<int>("VerkoperID")
                         .HasColumnType("int");
 
-                    b.HasKey("ProductID");
+b.Property<float?>("Eindprijs")
+    .HasColumnType("real");
 
                     b.HasIndex("VeilerId");
 
-                    b.ToTable("Producten");
-                });
+b.Property<string>("Naam")
+    .IsRequired()
+    .HasColumnType("nvarchar(max)");
 
-            modelBuilder.Entity("backend.Models.Veiling", b =>
-                {
-                    b.Property<int>("VeilingID")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
+b.Property<float?>("StartPrijs")
+    .HasColumnType("real");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("VeilingID"));
+b.Property<int?>("VeilerGebruikersID")
+    .HasColumnType("int");
 
                     b.Property<TimeSpan?>("EindTijd")
                         .HasColumnType("time");
@@ -286,8 +285,8 @@ namespace backend.Migrations
                     b.Property<string>("KoperId")
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<int>("ProductID")
-                        .HasColumnType("int");
+b.ToTable("Producten");
+});
 
                     b.Property<DateTime>("StartDatumTijd")
                         .HasColumnType("datetime2");
@@ -302,22 +301,18 @@ namespace backend.Migrations
 
                     b.HasIndex("KoperId");
 
-                    b.ToTable("Veilingen");
-                });
+b.Property<float?>("VerkoopPrijs")
+    .HasColumnType("real");
 
-            modelBuilder.Entity("backend.Models.Admin", b =>
-                {
-                    b.HasBaseType("backend.Models.Gebruiker");
+b.Property<int>("VerkoperID")
+    .HasColumnType("int");
 
-                    b.ToTable("Admins", (string)null);
-                });
+b.HasKey("VeilingID");
 
-            modelBuilder.Entity("backend.Models.Koper", b =>
-                {
-                    b.HasBaseType("backend.Models.Gebruiker");
+b.HasIndex("KoperID");
 
-                    b.ToTable("Kopers", (string)null);
-                });
+b.ToTable("Veilingen");
+});
 
             modelBuilder.Entity("backend.Models.Veiler", b =>
                 {
@@ -429,11 +424,11 @@ namespace backend.Migrations
                     b.Navigation("GewonnenVeilingen");
                 });
 
-            modelBuilder.Entity("backend.Models.Veiler", b =>
-                {
-                    b.Navigation("Producten");
-                });
+modelBuilder.Entity("backend.Models.Veiler", b =>
+{
+b.Navigation("Producten");
+});
 #pragma warning restore 612, 618
-        }
-    }
+}
+}
 }

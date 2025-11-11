@@ -1,6 +1,6 @@
 import { Box, Container, Grid, Typography } from "@mui/material";
 import ProductCard from "../Components/ProductCard";
-import { dummyProducts } from "../Data/dummyProducts";
+import { fetchProducts } from "../Data/Products";
 
 export default function Home() {
   return (
@@ -25,7 +25,7 @@ export default function Home() {
         </Typography>
 
         <Grid container spacing={{ xs: 2, md: 3 }} columns={{ xs: 4, sm: 8, md: 12 }}>
-          {dummyProducts.map((product) => (
+          {fetchProducts().products.map((product) => (
             <Grid key={product.id} size={{xs: 2, sm:4, md: 4}}>
               <ProductCard product={product} />
             </Grid>
