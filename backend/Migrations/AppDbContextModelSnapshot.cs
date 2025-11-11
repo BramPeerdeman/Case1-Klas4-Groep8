@@ -66,163 +66,152 @@ namespace backend.Migrations
                     b.Property<int>("ProductID")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
-
+                    //Where can I find IDENTITY_INSERT? You can find IDENTITY_INSERT in SQL Server, which is a setting that allows explicit values to be inserted into the identity column of a table. By default, SQL Server automatically generates values for identity columns, but when IDENTITY_INSERT is set to ON for a specific table, you can manually insert values into the identity column.
+                    //Where is that setting? The IDENTITY_INSERT setting is controlled at the table level in SQL Server. You can enable or disable it using the following SQL commands:
+                    /* To enable IDENTITY_INSERT for a table:
+                     * SET IDENTITY_INSERT [TableName] ON;
+                     */
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ProductID"));
 
-                    b.Property<string>("Beschrijving")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+b.Property<string>("Beschrijving")
+    .IsRequired()
+    .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("Naam")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+b.Property<float?>("Eindprijs")
+    .HasColumnType("real");
 
-                    b.Property<float>("StartPrijs")
-                        .HasColumnType("real");
+b.Property<float?>("MinPrijs")
+    .HasColumnType("real");
 
-                    b.Property<int>("VerkoperID")
-                        .HasColumnType("int");
+b.Property<string>("Naam")
+    .IsRequired()
+    .HasColumnType("nvarchar(max)");
 
-                    b.HasKey("ProductID");
+b.Property<float?>("StartPrijs")
+    .HasColumnType("real");
 
-                    b.HasIndex("VerkoperID");
+b.Property<int?>("VeilerGebruikersID")
+    .HasColumnType("int");
 
-                    b.ToTable("Producten");
-                });
+b.Property<int>("VerkoperID")
+    .HasColumnType("int");
 
-            modelBuilder.Entity("backend.Models.Veiling", b =>
-                {
-                    b.Property<int>("VeilingID")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
+b.HasKey("ProductID");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("VeilingID"));
+b.HasIndex("VeilerGebruikersID");
 
-                    b.Property<DateTime>("Datum")
-                        .HasColumnType("datetime2");
+b.ToTable("Producten");
+});
 
-                    b.Property<TimeSpan>("EindTijd")
-                        .HasColumnType("time");
+modelBuilder.Entity("backend.Models.Veiling", b =>
+{
+b.Property<int>("VeilingID")
+    .ValueGeneratedOnAdd()
+    .HasColumnType("int");
 
-                    b.Property<int?>("KoperID")
-                        .HasColumnType("int");
+SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("VeilingID"));
 
-                    b.Property<int>("ProductID")
-                        .HasColumnType("int");
+b.Property<TimeSpan?>("EindTijd")
+    .HasColumnType("time");
 
-                    b.Property<TimeSpan>("StartTijd")
-                        .HasColumnType("time");
+b.Property<int?>("KoperID")
+    .HasColumnType("int");
 
-                    b.Property<int>("VeilingDuur")
-                        .HasColumnType("int");
+b.Property<int>("ProductID")
+    .HasColumnType("int");
 
-                    b.Property<float>("VerkoopPrijs")
-                        .HasColumnType("real");
+b.Property<DateTime>("StartDatumTijd")
+    .HasColumnType("datetime2");
 
-                    b.HasKey("VeilingID");
+b.Property<float?>("VerkoopPrijs")
+    .HasColumnType("real");
 
-                    b.HasIndex("KoperID");
+b.Property<int>("VerkoperID")
+    .HasColumnType("int");
 
-                    b.HasIndex("ProductID");
+b.HasKey("VeilingID");
 
-                    b.ToTable("Veilingen");
-                });
+b.HasIndex("KoperID");
 
-            modelBuilder.Entity("backend.Models.Admin", b =>
-                {
-                    b.HasBaseType("backend.Models.Gebruiker");
+b.ToTable("Veilingen");
+});
 
-                    b.ToTable("Admins", (string)null);
-                });
+modelBuilder.Entity("backend.Models.Admin", b =>
+{
+b.HasBaseType("backend.Models.Gebruiker");
 
-            modelBuilder.Entity("backend.Models.Koper", b =>
-                {
-                    b.HasBaseType("backend.Models.Gebruiker");
+b.ToTable("Admins", (string)null);
+});
 
-                    b.ToTable("Kopers", (string)null);
-                });
+modelBuilder.Entity("backend.Models.Koper", b =>
+{
+b.HasBaseType("backend.Models.Gebruiker");
 
-            modelBuilder.Entity("backend.Models.Veiler", b =>
-                {
-                    b.HasBaseType("backend.Models.Gebruiker");
+b.ToTable("Kopers", (string)null);
+});
 
-                    b.Property<string>("KvkNummer")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+modelBuilder.Entity("backend.Models.Veiler", b =>
+{
+b.HasBaseType("backend.Models.Gebruiker");
 
-                    b.ToTable("Veilers", (string)null);
-                });
+b.Property<string>("KvkNummer")
+    .IsRequired()
+    .HasColumnType("nvarchar(max)");
 
-            modelBuilder.Entity("backend.Models.Product", b =>
-                {
-                    b.HasOne("backend.Models.Veiler", "Verkoper")
-                        .WithMany("Producten")
-                        .HasForeignKey("VerkoperID")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+b.ToTable("Veilers", (string)null);
+});
 
-                    b.Navigation("Verkoper");
-                });
+modelBuilder.Entity("backend.Models.Product", b =>
+{
+b.HasOne("backend.Models.Veiler", null)
+    .WithMany("Producten")
+    .HasForeignKey("VeilerGebruikersID");
+});
 
-            modelBuilder.Entity("backend.Models.Veiling", b =>
-                {
-                    b.HasOne("backend.Models.Koper", "Koper")
-                        .WithMany("GewonnenVeilingen")
-                        .HasForeignKey("KoperID");
+modelBuilder.Entity("backend.Models.Veiling", b =>
+{
+b.HasOne("backend.Models.Koper", null)
+    .WithMany("GewonnenVeilingen")
+    .HasForeignKey("KoperID");
+});
 
-                    b.HasOne("backend.Models.Product", "Product")
-                        .WithMany("Veilingen")
-                        .HasForeignKey("ProductID")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+modelBuilder.Entity("backend.Models.Admin", b =>
+{
+b.HasOne("backend.Models.Gebruiker", null)
+    .WithOne()
+    .HasForeignKey("backend.Models.Admin", "GebruikersID")
+    .OnDelete(DeleteBehavior.Cascade)
+    .IsRequired();
+});
 
-                    b.Navigation("Koper");
+modelBuilder.Entity("backend.Models.Koper", b =>
+{
+b.HasOne("backend.Models.Gebruiker", null)
+    .WithOne()
+    .HasForeignKey("backend.Models.Koper", "GebruikersID")
+    .OnDelete(DeleteBehavior.Cascade)
+    .IsRequired();
+});
 
-                    b.Navigation("Product");
-                });
+modelBuilder.Entity("backend.Models.Veiler", b =>
+{
+b.HasOne("backend.Models.Gebruiker", null)
+    .WithOne()
+    .HasForeignKey("backend.Models.Veiler", "GebruikersID")
+    .OnDelete(DeleteBehavior.Cascade)
+    .IsRequired();
+});
 
-            modelBuilder.Entity("backend.Models.Admin", b =>
-                {
-                    b.HasOne("backend.Models.Gebruiker", null)
-                        .WithOne()
-                        .HasForeignKey("backend.Models.Admin", "GebruikersID")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-                });
+modelBuilder.Entity("backend.Models.Koper", b =>
+{
+b.Navigation("GewonnenVeilingen");
+});
 
-            modelBuilder.Entity("backend.Models.Koper", b =>
-                {
-                    b.HasOne("backend.Models.Gebruiker", null)
-                        .WithOne()
-                        .HasForeignKey("backend.Models.Koper", "GebruikersID")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-                });
-
-            modelBuilder.Entity("backend.Models.Veiler", b =>
-                {
-                    b.HasOne("backend.Models.Gebruiker", null)
-                        .WithOne()
-                        .HasForeignKey("backend.Models.Veiler", "GebruikersID")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-                });
-
-            modelBuilder.Entity("backend.Models.Product", b =>
-                {
-                    b.Navigation("Veilingen");
-                });
-
-            modelBuilder.Entity("backend.Models.Koper", b =>
-                {
-                    b.Navigation("GewonnenVeilingen");
-                });
-
-            modelBuilder.Entity("backend.Models.Veiler", b =>
-                {
-                    b.Navigation("Producten");
-                });
+modelBuilder.Entity("backend.Models.Veiler", b =>
+{
+b.Navigation("Producten");
+});
 #pragma warning restore 612, 618
-        }
-    }
+}
+}
 }
