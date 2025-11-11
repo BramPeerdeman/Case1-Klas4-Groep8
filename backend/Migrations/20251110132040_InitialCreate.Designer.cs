@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using backend.Data;
 
@@ -11,9 +12,11 @@ using backend.Data;
 namespace backend.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251110132040_InitialCreate")]
+    partial class InitialCreate
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -239,6 +242,7 @@ namespace backend.Migrations
                     b.Property<int>("ProductID")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
+
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ProductID"));
 
                     b.Property<string>("Beschrijving")
@@ -264,20 +268,20 @@ namespace backend.Migrations
                     b.Property<int>("VerkoperID")
                         .HasColumnType("int");
 
-b.Property<float?>("Eindprijs")
-    .HasColumnType("real");
+                    b.HasKey("ProductID");
 
                     b.HasIndex("VeilerId");
 
-b.Property<string>("Naam")
-    .IsRequired()
-    .HasColumnType("nvarchar(max)");
+                    b.ToTable("Producten");
+                });
 
-b.Property<float?>("StartPrijs")
-    .HasColumnType("real");
+            modelBuilder.Entity("backend.Models.Veiling", b =>
+                {
+                    b.Property<int>("VeilingID")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
 
-b.Property<int?>("VeilerGebruikersID")
-    .HasColumnType("int");
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("VeilingID"));
 
                     b.Property<TimeSpan?>("EindTijd")
                         .HasColumnType("time");
@@ -285,8 +289,8 @@ b.Property<int?>("VeilerGebruikersID")
                     b.Property<string>("KoperId")
                         .HasColumnType("nvarchar(450)");
 
-b.ToTable("Producten");
-});
+                    b.Property<int>("ProductID")
+                        .HasColumnType("int");
 
                     b.Property<DateTime>("StartDatumTijd")
                         .HasColumnType("datetime2");
@@ -301,18 +305,22 @@ b.ToTable("Producten");
 
                     b.HasIndex("KoperId");
 
-b.Property<float?>("VerkoopPrijs")
-    .HasColumnType("real");
+                    b.ToTable("Veilingen");
+                });
 
-b.Property<int>("VerkoperID")
-    .HasColumnType("int");
+            modelBuilder.Entity("backend.Models.Admin", b =>
+                {
+                    b.HasBaseType("backend.Models.Gebruiker");
 
-b.HasKey("VeilingID");
+                    b.ToTable("Admins", (string)null);
+                });
 
-b.HasIndex("KoperID");
+            modelBuilder.Entity("backend.Models.Koper", b =>
+                {
+                    b.HasBaseType("backend.Models.Gebruiker");
 
-b.ToTable("Veilingen");
-});
+                    b.ToTable("Kopers", (string)null);
+                });
 
             modelBuilder.Entity("backend.Models.Veiler", b =>
                 {
@@ -424,11 +432,11 @@ b.ToTable("Veilingen");
                     b.Navigation("GewonnenVeilingen");
                 });
 
-modelBuilder.Entity("backend.Models.Veiler", b =>
-{
-b.Navigation("Producten");
-});
+            modelBuilder.Entity("backend.Models.Veiler", b =>
+                {
+                    b.Navigation("Producten");
+                });
 #pragma warning restore 612, 618
-}
-}
+        }
+    }
 }
