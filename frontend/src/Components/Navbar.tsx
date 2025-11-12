@@ -12,6 +12,7 @@ export default function Navbar() {
   const handleMenuClose = () => setAnchorEl(null);
   const handleProfile = () => { handleMenuClose(); navigate("/profile"); };
   const handleLoginLogout = () => { handleMenuClose(); isLoggedIn ? logout() : navigate("/login"); };
+  const handleSettings = () => { handleMenuClose(); isLoggedIn ? navigate("/settings") : navigate("/login"); };
 
   return (
     <AppBar position="sticky" sx={{ backgroundColor: "primary.main", px: 2 }}>
@@ -26,6 +27,7 @@ export default function Navbar() {
           <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleMenuClose}>
             <MenuItem onClick={handleProfile}>Profile</MenuItem>
             <MenuItem onClick={handleLoginLogout}>{isLoggedIn ? "Logout" : "Login"}</MenuItem>
+            <MenuItem onClick={handleSettings}>Settings</MenuItem>
           </Menu>
         </Box>
       </Toolbar>
