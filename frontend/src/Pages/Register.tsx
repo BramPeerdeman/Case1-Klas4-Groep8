@@ -41,17 +41,27 @@ export default function Register() {
         navigate("/login");
       } else {
         // FOUT: Backend gaf een 400 (Bad Request)
-        const errorData = await response.json();
-        
-        // Probeer een nuttige foutmelding te tonen
-        if (errorData && errorData.errors) {
-          setError(errorData.errors[0].description);
-        } else if (response.status === 400) {
-            setError("E-mail of gebruikersnaam is al in gebruik.");
-        } 
-        else {
-          setError("Registratie mislukt. Probeer het opnieuw.");
-        }
+        const errorText = await response.text();
+
+      // 1. Check eerst op de specifieke fouten die we net hebben gemaakt
+      if (errorText.includes("e-mail bestaat al")) {
+          setError("Een gebruiker met deze e-mail bestaat al.");
+      } 
+      else if (errorText.includes("gebruikersnaam is al in gebruik")) {
+          setError("Deze gebruikersnaam is al in gebruik.");
+      }
+      // 2. Check op te zwak wachtwoord (dit komt van Identity)
+      else if (errorText.includes("Passwords must be at least")) {
+          setError("Wachtwoord is te zwak. Het moet minimaal 6 tekens lang zijn.");
+      }
+      else if (errorText.includes("Passwords must have at least one non-alphanumeric character")) {
+          setError("Wachtwoord moet minimaal één speciaal teken hebben (bv. !, #, @).");
+      }
+      // 3. De algemene vangnet-fout
+      else {
+          setError("Registratie mislukt. Controleer alle velden.");
+          console.error("Onbekende backend fout:", errorText); // Log de fout voor jezelf
+      }
       }
     } catch (err) {
       // FOUT: Netwerkfout

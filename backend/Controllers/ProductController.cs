@@ -3,6 +3,7 @@ using backend.Data;
 using backend.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Authorization;
 
 namespace backend.Controllers
 {
@@ -30,15 +31,15 @@ namespace backend.Controllers
         [HttpGet("product/{id}")]
         public async Task<IActionResult> GetProductById(int id)
         {
-           var product = await _context.Producten
-                .AsNoTracking()
-                .FirstOrDefaultAsync(p => p.ProductID == id);
-            if (product == null) 
+            var product = await _context.Producten
+                 .AsNoTracking()
+                 .FirstOrDefaultAsync(p => p.ProductID == id);
+            if (product == null)
                 return NotFound("productID not found!");
 
-            return Ok(product); 
+            return Ok(product);
         }
-
+        [Authorize(Roles = "admin")]
         [HttpPost("product")]
         public async Task<IActionResult> CreateProduct([FromBody] Product product)
         {
