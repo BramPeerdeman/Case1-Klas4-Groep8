@@ -1,10 +1,15 @@
-﻿/*using backend.Data;
+﻿
+
+using backend.Data;
 using backend.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Any;
 using Microsoft.OpenApi.Models;
 using Swashbuckle.AspNetCore.SwaggerGen;
+using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
+using Microsoft.AspNetCore.Identity;
 
 namespace backend.Controllers
 {
@@ -12,94 +17,49 @@ namespace backend.Controllers
     [Route("api/[controller]")]
     public class GebruikerController : ControllerBase
     {
-        private readonly AppDbContext _context;
+        private readonly UserManager<Gebruiker> _userManager;
 
-        public GebruikerController(AppDbContext context)
+        public GebruikerController(UserManager<Gebruiker> userManager)
         {
-            _context = context;
+            _userManager = userManager;
+        }
+        private string GenerateJwtToken(Gebruiker gebruiker)
+        {
+            var jwt = new Helper.JwtService(this.HttpContext.RequestServices.GetService(typeof(IConfiguration)) as IConfiguration);
+            return jwt.GenerateJwtToken(gebruiker);
         }
 
-        // GET: api/Gebruiker
-        [HttpGet]
-        public async Task<IActionResult> GetAll()
+        [HttpPut("{id}/username")]
+        public async Task<IActionResult> UpdateUsername(string id, [FromBody] UpdateUsernameDto dto)
         {
-            var gebruikers = await _context.Gebruikers.ToListAsync();
-            return Ok(gebruikers);
-        }
+            var gebruiker = await _userManager.FindByIdAsync(id);
+            if (gebruiker == null) return NotFound("Gebruiker niet gevonden.");
 
-        // GET: api/Gebruiker/{id}
-        [HttpGet("{id}")]
-        public async Task<IActionResult> GetById(int id)
-        {
-            var gebruiker = await _context.Gebruikers.FindAsync(id);
-            if (gebruiker == null)
-                return NotFound();
+            var passwordValid = await _userManager.CheckPasswordAsync(gebruiker, dto.CurrentPassword);
+            if (!passwordValid) return Unauthorized("Wachtwoord ongeldig.");
 
-            return Ok(gebruiker);
-        }
+            gebruiker.UserName = dto.NewUsername;
+            var result = await _userManager.UpdateAsync(gebruiker);
 
-        // POST: api/Gebruiker
-        // Polymorf: accepteert Admin, Veiler of Koper
-        [HttpPost]
-        public async Task<IActionResult> Add([FromBody] Gebruiker gebruiker)
-        {
-            _context.Gebruikers.Add(gebruiker);
-            await _context.SaveChangesAsync();
+            if (!result.Succeeded) return BadRequest(result.Errors);
 
-            return CreatedAtAction(nameof(GetById), new { id = gebruiker.GebruikersID }, gebruiker);
-        }
-
-        // PUT: api/Gebruiker/{id}
-        [HttpPut("{id}")]
-        public async Task<IActionResult> Update(int id, [FromBody] Gebruiker updatedGebruiker)
-        {
-            var existing = await _context.Gebruikers.FindAsync(id);
-            if (existing == null)
-                return NotFound();
-
-            // Map de velden van updatedGebruiker naar existing behalve id self
-            // basisvelden
-            existing.Gebruikersnaam = updatedGebruiker.Gebruikersnaam;
-            existing.Wachtwoord = updatedGebruiker.Wachtwoord;
-            existing.Email = updatedGebruiker.Email;
-            existing.Voornaam = updatedGebruiker.Voornaam;
-            existing.Achternaam = updatedGebruiker.Achternaam;
-            existing.UiSettings = updatedGebruiker.UiSettings;
-
-            // subtype-specifieke velden
-            if (existing is Veiler veiler && updatedGebruiker is Veiler updatedVeiler)
-            {
-                veiler.KvkNummer = updatedVeiler.KvkNummer;
-            }
-            else if (existing is Koper koper && updatedGebruiker is Koper updatedKoper)
-            {
-                koper.GewonnenVeilingen = updatedKoper.GewonnenVeilingen;
-            }
-
-
-            await _context.SaveChangesAsync();
-            return NoContent();
-        }
-
-
-        // DELETE: api/Gebruiker/{id}
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> Delete(int id)
-        {
-            var gebruiker = await _context.Gebruikers.FindAsync(id);
-            if (gebruiker == null)
-                return NotFound();
-
-            _context.Gebruikers.Remove(gebruiker);
-            await _context.SaveChangesAsync();
-
-            return NoContent();
+            // issue a fresh JWT with updated claims
+            var token = GenerateJwtToken(gebruiker);
+            return Ok(new { Message = "Gebruikersnaam bijgewerkt.", Token = token });
         }
 
     }
+
+    public class UpdateUsernameDto
+    {
+        public string NewUsername { get; set; }
+        public string CurrentPassword { get; set; }
+    }
+
+
 }
 
-//voorbeeld die in swagger ui komt te staan
+/*//voorbeeld die in swagger ui komt te staan
 public class GebruikerExampleFilter : ISchemaFilter
 {
     public void Apply(OpenApiSchema schema, SchemaFilterContext context)
@@ -118,6 +78,4 @@ public class GebruikerExampleFilter : ISchemaFilter
             };
         }
     }
-}
-
-*/
+}*/
