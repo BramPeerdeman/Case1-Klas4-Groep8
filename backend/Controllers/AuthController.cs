@@ -32,11 +32,20 @@ public class AuthController : ControllerBase
     public async Task<IActionResult> Register([FromBody] RegisterDto registerDto)
     {
         // 1. Controleer of de gebruiker (op basis van e-mail) al bestaat
-        var userExists = await _userManager.FindByEmailAsync(registerDto.Email);
-        if (userExists != null)
-        {
-            return BadRequest("Een gebruiker met deze e-mail bestaat al.");
-        }
+        var userByEmail = await _userManager.FindByEmailAsync(registerDto.Email);
+    if (userByEmail != null)
+    {
+    // Stuur een specifieke fout terug
+        return BadRequest("Een gebruiker met deze e-mail bestaat al.");
+    }
+
+// 2. NIEUWE CHECK: Controleer of de GEBRUIKERSNAAM al bestaat
+    var userByUsername = await _userManager.FindByNameAsync(registerDto.Gebruikersnaam);
+    if (userByUsername != null)
+    {
+    // Stuur een specifieke fout terug
+        return BadRequest("Deze gebruikersnaam is al in gebruik.");
+    }
 
         
         Gebruiker gebruiker;
@@ -66,9 +75,11 @@ public class AuthController : ControllerBase
 
         if (!result.Succeeded)
         {
-            
+
             return BadRequest(result.Errors);
         }
+        var rol = registerDto.Type.ToLower();
+        await _userManager.AddToRoleAsync(gebruiker, rol);
 
         return Ok(new { Message = "Gebruiker succesvol geregistreerd." });
     }
@@ -94,7 +105,7 @@ public class AuthController : ControllerBase
         }
 
         
-        var token = GenerateJwtToken(gebruiker);
+        var token = await GenerateJwtToken(gebruiker);
 
         
         return Ok(new UserDto
@@ -105,7 +116,7 @@ public class AuthController : ControllerBase
         });
     }
     
-    private string GenerateJwtToken(Gebruiker gebruiker)
+    private async Task<string> GenerateJwtToken(Gebruiker gebruiker)
 {
     
     var jwtKey = _config["Jwt:Key"];
@@ -122,18 +133,22 @@ public class AuthController : ControllerBase
     var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
 
     
-    var claims = new[]
-    {
-        // Unieke ID van de gebruiker
-        new Claim(JwtRegisteredClaimNames.Sub, gebruiker.Id), 
-        // E-mailadres
-        new Claim(JwtRegisteredClaimNames.Email, gebruiker.Email ?? string.Empty), 
-        // Gebruikersnaam
-        new Claim(JwtRegisteredClaimNames.Name, gebruiker.UserName ?? string.Empty), 
-        // Een unieke ID voor deze specifieke token
-        new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()) 
-        // TODO: Je kunt hier ook de ROL (Koper/Veiler) toevoegen
-    };
+    var userRoles = await _userManager.GetRolesAsync(gebruiker);
+
+
+var claims = new List<Claim>
+{
+    new Claim(JwtRegisteredClaimNames.Sub, gebruiker.Id), 
+    new Claim(JwtRegisteredClaimNames.Email, gebruiker.Email ?? string.Empty), 
+    new Claim(JwtRegisteredClaimNames.Name, gebruiker.UserName ?? string.Empty), 
+    new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()) 
+};
+
+// 3c. Voeg alle rollen van de gebruiker toe als "Rol" claims
+foreach (var userRole in userRoles)
+{
+    claims.Add(new Claim(ClaimTypes.Role, userRole));
+}
 
     // 4. Maak het token-object aan
     var token = new JwtSecurityToken(

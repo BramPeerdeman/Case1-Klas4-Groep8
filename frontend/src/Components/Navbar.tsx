@@ -4,7 +4,8 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../Contexts/AuthContext";
 
 export default function Navbar() {
-  const { isLoggedIn, logout } = useAuth();
+  // 1. VRAAG DE 'isAdmin' STATUS OP UIT DE "PORTEMONNEE" (AuthContext)
+  const { isLoggedIn, logout, isAdmin } = useAuth(); 
   const navigate = useNavigate();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
 
@@ -22,6 +23,22 @@ export default function Navbar() {
         <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
           <Button color="inherit" component={Link} to="/about">Over</Button>
           <Button color="inherit" component={Link} to="/contact">Contact</Button>
+          
+          {/* 2. DE "MAGISCHE" ADMIN-KNOP
+               Dit blok code betekent: "Als 'isAdmin' TRUE is,
+               render dan de <Button> die hier staat."
+          */}
+          {isAdmin && (
+            <Button 
+              color="inherit" 
+              component={Link} 
+              to="/admin"
+              sx={{ fontWeight: 'bold', color: 'yellow' }} // Beetje opvallen
+            >
+              Admin
+            </Button>
+          )}
+
           <Avatar src="https://i.pravatar.cc/40" sx={{ cursor: "pointer" }} onClick={handleMenuOpen} />
           <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleMenuClose}>
             <MenuItem onClick={handleProfile}>Profile</MenuItem>

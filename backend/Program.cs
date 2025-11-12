@@ -95,6 +95,35 @@ builder.Services.AddSwaggerGen(c =>
 builder.Services.AddSignalR();
 var app = builder.Build();
 
+using (var scope = app.Services.CreateScope())
+{
+    var services = scope.ServiceProvider;
+    var loggerFactory = services.GetRequiredService<ILoggerFactory>();
+    try
+    {
+        // Vraag de RoleManager (de "Rollenbaas") op
+        var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
+
+        string[] roleNames = { "admin", "koper", "veiler" };
+        foreach (var roleName in roleNames)
+        {
+            // Bestaat de rol al?
+            var roleExists = await roleManager.RoleExistsAsync(roleName);
+            if (!roleExists)
+            {
+                // Nee? Maak hem dan aan.
+                await roleManager.CreateAsync(new IdentityRole(roleName));
+            }
+        }
+    }
+    catch (Exception ex)
+    {
+        // Mocht het seeden falen (bv. database niet bereikbaar), log het dan
+        var logger = loggerFactory.CreateLogger<Program>();
+        logger.LogError(ex, "Er is een fout opgetreden bij het seeden van de rollen.");
+    }
+}
+
 // --- Middleware ---
 if (app.Environment.IsDevelopment())
 {
