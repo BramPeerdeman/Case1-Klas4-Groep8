@@ -19,7 +19,7 @@ export default function Settings() {
   const userId = decoded?.sub;
 
   async function updateUsername(userId: string, newUsername: string, password: string, token: string) {
-    const response = await fetch(`https://localhost:7242/api/Gebruiker/${userId}/username`, {
+    const response = await fetch(`/api/Gebruiker/${userId}/username`, {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",

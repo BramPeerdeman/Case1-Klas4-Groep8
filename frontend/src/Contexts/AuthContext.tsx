@@ -1,5 +1,5 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import type { ReactNode } from "react"; // <-- Import-fix van de vorige keer
+import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
+
 import { jwtDecode } from "jwt-decode"; 
 
 // 1. DIT IS DE GROTE WIJZIGING!

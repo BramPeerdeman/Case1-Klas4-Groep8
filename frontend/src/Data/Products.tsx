@@ -1,4 +1,4 @@
-const apiUrl = 'https://localhost:7242/api/Product/products';
+const apiUrl = '/api/Product/products';
 
 //voor de interface ApiProduct moet je er voor zorgen dat de velden overeenkomen met die van de tabel Product in de database.
 //Het is hoofdletter gevoelig dus let daar op.
