@@ -77,7 +77,7 @@ namespace backend.Controllers
             return Ok(selectedproduct);
 
         }
-
+        [Authorize(Roles = "admin")]
         [HttpPut("product/{id}/veranderprijs")]
         public async Task<IActionResult> UpdateProductPrice(int id, [FromBody] float newPrice)
         {
