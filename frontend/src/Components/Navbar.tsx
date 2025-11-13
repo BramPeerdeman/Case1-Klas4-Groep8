@@ -14,7 +14,6 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../Contexts/AuthContext";
 
 export default function Navbar() {
-  // 1. VRAAG DE 'isAdmin' STATUS OP UIT DE "PORTEMONNEE" (AuthContext)
   const { isLoggedIn, logout, isAdmin } = useAuth();
   const navigate = useNavigate();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
@@ -36,59 +35,111 @@ export default function Navbar() {
   };
 
   return (
-    <AppBar position="sticky" sx={{ backgroundColor: "primary.main", px: 2 }}>
-      <Toolbar sx={{ display: "flex", justifyContent: "space-between" }}>
+    <AppBar
+      position="sticky"
+      component="nav"
+      sx={{ backgroundColor: "primary.main", px: 2 }}
+    >
+      <Toolbar
+        sx={{
+          display: "flex",
+          justifyContent: "space-between",
+          flexWrap: "wrap",
+        }}
+      >
+        {/* Brand / Home link */}
         <Typography
           component={Link}
           to="/"
           variant="h6"
-          sx={{ color: "inherit", textDecoration: "none", fontWeight: "bold" }}
+          sx={{
+            color: "inherit",
+            textDecoration: "none",
+            fontWeight: "bold",
+            "&:focus": { outline: "2px solid #fff", outlineOffset: "2px" },
+          }}
         >
           BloemenVeiling
         </Typography>
-        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-          <Button color="inherit" component={Link} to="/about">
+
+        {/* Navigation links */}
+        <Box
+          component="nav"
+          aria-label="Hoofdmenu"
+          sx={{ display: "flex", alignItems: "center", gap: 2 }}
+        >
+          <Button
+            color="inherit"
+            component={Link}
+            to="/about"
+            sx={{
+              "&:focus": { outline: "2px solid #fff", outlineOffset: "2px" },
+            }}
+          >
             Over
           </Button>
-          <Button color="inherit" component={Link} to="/contact">
+          <Button
+            color="inherit"
+            component={Link}
+            to="/contact"
+            sx={{
+              "&:focus": { outline: "2px solid #fff", outlineOffset: "2px" },
+            }}
+          >
             Contact
           </Button>
 
-          {/* 2. DE "MAGISCHE" ADMIN-KNOP
-               Dit blok code betekent: "Als 'isAdmin' TRUE is,
-               render dan de <Button> die hier staat."
-          */}
+          {/* Admin only button */}
           {isAdmin && (
             <Button
               color="inherit"
               component={Link}
               to="/admin"
-              sx={{ fontWeight: "bold", color: "yellow" }} // Beetje opvallen
+              sx={{
+                fontWeight: "bold",
+                color: "yellow",
+                "&:focus": { outline: "2px solid #fff", outlineOffset: "2px" },
+              }}
             >
               Admin
             </Button>
           )}
 
+          {/* Accessible user menu */}
           <IconButton
             onClick={handleMenuOpen}
-            aria-controls={Boolean(anchorEl) ? "user-menu" : undefined}
-            aria-haspopup="true"
-            aria-expanded={Boolean(anchorEl) ? "true" : undefined}
             aria-label="Gebruikersmenu openen"
+            aria-controls={anchorEl ? "user-menu" : undefined}
+            aria-haspopup="true"
+            aria-expanded={anchorEl ? "true" : undefined}
             sx={{ p: 0 }}
           >
-            <Avatar src="https://i.pravatar.cc/40" alt="Gebruikersprofiel" />
+            <Avatar
+              src="https://i.pravatar.cc/40"
+              alt="Gebruikersprofiel"
+              sx={{
+                width: 40,
+                height: 40,
+                border: "2px solid white",
+              }}
+            />
           </IconButton>
+
           <Menu
+            id="user-menu"
             anchorEl={anchorEl}
             open={Boolean(anchorEl)}
             onClose={handleMenuClose}
+            MenuListProps={{
+              "aria-labelledby": "user-menu-button",
+              role: "menu",
+            }}
           >
-            <MenuItem onClick={handleProfile}>Profile</MenuItem>
+            <MenuItem onClick={handleProfile}>Profiel</MenuItem>
             <MenuItem onClick={handleLoginLogout}>
-              {isLoggedIn ? "Logout" : "Login"}
+              {isLoggedIn ? "Uitloggen" : "Inloggen"}
             </MenuItem>
-            <MenuItem onClick={handleSettings}>Settings</MenuItem>
+            <MenuItem onClick={handleSettings}>Instellingen</MenuItem>
           </Menu>
         </Box>
       </Toolbar>
