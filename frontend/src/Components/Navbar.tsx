@@ -1,53 +1,97 @@
 import { useState } from "react";
-import { AppBar, Toolbar, Button, Box, Avatar, Menu, MenuItem, Typography } from "@mui/material";
+import {
+  AppBar,
+  Toolbar,
+  Button,
+  Box,
+  Avatar,
+  Menu,
+  MenuItem,
+  Typography,
+  IconButton,
+} from "@mui/material";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../Contexts/AuthContext";
 
 export default function Navbar() {
   // 1. VRAAG DE 'isAdmin' STATUS OP UIT DE "PORTEMONNEE" (AuthContext)
-  const { isLoggedIn, logout, isAdmin } = useAuth(); 
+  const { isLoggedIn, logout, isAdmin } = useAuth();
   const navigate = useNavigate();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
 
-  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => setAnchorEl(event.currentTarget);
+  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) =>
+    setAnchorEl(event.currentTarget);
   const handleMenuClose = () => setAnchorEl(null);
-  const handleProfile = () => { handleMenuClose(); navigate("/profile"); };
-  const handleLoginLogout = () => { handleMenuClose(); isLoggedIn ? logout() : navigate("/login"); };
-  const handleSettings = () => { handleMenuClose(); isLoggedIn ? navigate("/settings") : navigate("/login"); };
+  const handleProfile = () => {
+    handleMenuClose();
+    navigate("/profile");
+  };
+  const handleLoginLogout = () => {
+    handleMenuClose();
+    isLoggedIn ? logout() : navigate("/login");
+  };
+  const handleSettings = () => {
+    handleMenuClose();
+    isLoggedIn ? navigate("/settings") : navigate("/login");
+  };
 
   return (
     <AppBar position="sticky" sx={{ backgroundColor: "primary.main", px: 2 }}>
       <Toolbar sx={{ display: "flex", justifyContent: "space-between" }}>
-        <Typography component={Link} to="/" variant="h6" sx={{ color: "inherit", textDecoration: "none", fontWeight: "bold" }}>
+        <Typography
+          component={Link}
+          to="/"
+          variant="h6"
+          sx={{ color: "inherit", textDecoration: "none", fontWeight: "bold" }}
+        >
           BloemenVeiling
         </Typography>
         <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-          <Button color="inherit" component={Link} to="/about">Over</Button>
-          <Button color="inherit" component={Link} to="/contact">Contact</Button>
-          
+          <Button color="inherit" component={Link} to="/about">
+            Over
+          </Button>
+          <Button color="inherit" component={Link} to="/contact">
+            Contact
+          </Button>
+
           {/* 2. DE "MAGISCHE" ADMIN-KNOP
                Dit blok code betekent: "Als 'isAdmin' TRUE is,
                render dan de <Button> die hier staat."
           */}
           {isAdmin && (
-            <Button 
-              color="inherit" 
-              component={Link} 
+            <Button
+              color="inherit"
+              component={Link}
               to="/admin"
-              sx={{ fontWeight: 'bold', color: 'yellow' }} // Beetje opvallen
+              sx={{ fontWeight: "bold", color: "yellow" }} // Beetje opvallen
             >
               Admin
             </Button>
           )}
 
-          <Avatar src="https://i.pravatar.cc/40" sx={{ cursor: "pointer" }} onClick={handleMenuOpen} />
-          <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleMenuClose}>
+          <IconButton
+            onClick={handleMenuOpen}
+            aria-controls={Boolean(anchorEl) ? "user-menu" : undefined}
+            aria-haspopup="true"
+            aria-expanded={Boolean(anchorEl) ? "true" : undefined}
+            aria-label="Gebruikersmenu openen"
+            sx={{ p: 0 }}
+          >
+            <Avatar src="https://i.pravatar.cc/40" alt="Gebruikersprofiel" />
+          </IconButton>
+          <Menu
+            anchorEl={anchorEl}
+            open={Boolean(anchorEl)}
+            onClose={handleMenuClose}
+          >
             <MenuItem onClick={handleProfile}>Profile</MenuItem>
-            <MenuItem onClick={handleLoginLogout}>{isLoggedIn ? "Logout" : "Login"}</MenuItem>
+            <MenuItem onClick={handleLoginLogout}>
+              {isLoggedIn ? "Logout" : "Login"}
+            </MenuItem>
             <MenuItem onClick={handleSettings}>Settings</MenuItem>
           </Menu>
         </Box>
       </Toolbar>
     </AppBar>
   );
-};
+}
