@@ -78,6 +78,17 @@ namespace backend.Controllers
 
         }
 
+        [HttpPut("product/{id}/veranderprijs")]
+        public async Task<IActionResult> UpdateProductPrice(int id, [FromBody] float newPrice)
+        {
+            var product = await _context.Producten.FindAsync(id);
+            if (product == null)
+                return NotFound();
+            product.StartPrijs = newPrice;
+            await _context.SaveChangesAsync();
+            return Ok(product);
+        }
+
         [HttpGet("product/onveilbarelist")]
         public async Task<IActionResult> GetUnassignedProducts()
         {
