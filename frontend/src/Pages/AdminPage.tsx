@@ -45,7 +45,7 @@ export default function AdminPage() {
 
     try {
       // 2. STUUR HET VERZOEK NAAR JE PRODUCT ENDPOINT
-      const response = await fetch("http://localhost:5299/api/Product/product", {
+      const response = await fetch("/api/Product/product", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
