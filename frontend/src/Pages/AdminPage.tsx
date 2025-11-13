@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Container, Box, TextField, Button, Typography, Card, CardContent } from "@mui/material";
+//admin pagina om producten toe te voegen
 
 // DTO (data-pakketje) voor ons formulier
 interface NewProductForm {
