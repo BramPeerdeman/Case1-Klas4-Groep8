@@ -1,30 +1,31 @@
 import { useState } from "react";
-import { Container, Box, TextField, Button, Typography, Card, CardContent, Grid } from "@mui/material"; // Voeg 'Grid' toe
-
+import { Container, Box, TextField, Button, Typography, Card, CardContent, Grid } from "@mui/material";
 
 interface NewProductForm {
   naam: string;
   beschrijving: string;
   startPrijs: number;
+  imageUrl: string; // URL veld
 }
 
 export default function AdminPage() {
   
+  // --- STATE VOOR NIEUW PRODUCT ---
   const [formData, setFormData] = useState<NewProductForm>({
     naam: "",
     beschrijving: "",
     startPrijs: 0,
+    imageUrl: ""
   });
   const [productError, setProductError] = useState<string>("");
   const [productSuccess, setProductSuccess] = useState<string>("");
 
-  
-  const [updateId, setUpdateId] = useState<string>(""); // Product ID om aan te passen
-  const [newPrice, setNewPrice] = useState<number>(0);   // De nieuwe prijs
+  // --- STATE VOOR PRIJS AANPASSEN ---
+  const [updateId, setUpdateId] = useState<string>("");
+  const [newPrice, setNewPrice] = useState<number>(0);
   const [priceError, setPriceError] = useState<string>("");
   const [priceSuccess, setPriceSuccess] = useState<string>("");
 
-  // Helper-functie voor het "Nieuw Product" formulier
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({
       ...formData,
@@ -32,7 +33,6 @@ export default function AdminPage() {
     });
   };
 
-  // --- Functie voor het "Nieuw Product" formulier ---
   const handleAddProduct = async (event: React.FormEvent) => {
     event.preventDefault();
     setProductError("");
@@ -45,8 +45,7 @@ export default function AdminPage() {
     }
 
     try {
-      // 2. STUUR HET VERZOEK NAAR JE PRODUCT ENDPOINT
-      const response = await fetch("/api/Product/product", {
+      const response = await fetch("http://localhost:5299/api/Product/product", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -56,12 +55,13 @@ export default function AdminPage() {
           naam: formData.naam,
           beschrijving: formData.beschrijving,
           startPrijs: Number(formData.startPrijs),
+          imageUrl: formData.imageUrl, // <-- HIER STUREN WE DE URL MEE
         }),
       });
 
       if (response.ok) {
         setProductSuccess("Product succesvol toegevoegd!");
-        setFormData({ naam: "", beschrijving: "", startPrijs: 0 });
+        setFormData({ naam: "", beschrijving: "", startPrijs: 0, imageUrl: "" });
       } else {
         setProductError("Toevoegen mislukt. Heeft u de juiste rechten?");
         console.error("Backend error:", await response.text());
@@ -72,7 +72,6 @@ export default function AdminPage() {
     }
   };
 
-  // --- NIEUW: Functie voor het "Prijs Aanpassen" formulier ---
   const handleUpdatePrice = async (event: React.FormEvent) => {
     event.preventDefault();
     setPriceError("");
@@ -85,14 +84,12 @@ export default function AdminPage() {
     }
 
     try {
-      // Gebruik het NIEUWE endpoint van je teamgenoot
       const response = await fetch(`http://localhost:5299/api/Product/product/${updateId}/veranderprijs`, {
-        method: "PUT", // Je teamgenoot gebruikte [HttpPut]
+        method: "PUT",
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${token}` 
         },
-        // De backend verwacht alleen de prijs, dus we sturen alleen een getal
         body: JSON.stringify(Number(newPrice)), 
       });
 
@@ -115,15 +112,13 @@ export default function AdminPage() {
     }
   };
 
-
   return (
     <Container maxWidth="lg" sx={{ mt: 4 }}>
       <Typography variant="h4" gutterBottom>Admin Dashboard</Typography>
       
-      {/* We gebruiken een Grid om de 2 formulieren naast elkaar te zetten */}
       <Grid container spacing={4}>
         
-        {/* --- Kaart 1: Product Toevoegen (Bestaande code) --- */}
+        {/* --- KAART 1: PRODUCT TOEVOEGEN --- */}
         <Grid xs={12} md={6}>
           <Card>
             <CardContent>
@@ -147,6 +142,19 @@ export default function AdminPage() {
                   multiline rows={3} 
                   required fullWidth 
                 />
+                
+                {/* --- HIER IS HET VELD DAT JE MISTE --- */}
+                <TextField 
+                  label="Afbeelding URL" 
+                  name="imageUrl"
+                  variant="outlined" 
+                  value={formData.imageUrl} 
+                  onChange={handleChange} 
+                  fullWidth 
+                  placeholder="https://voorbeeld.nl/bloem.jpg"
+                />
+                {/* ------------------------------------- */}
+
                 <TextField 
                   label="Startprijs (€)" 
                   name="startPrijs"
@@ -168,7 +176,7 @@ export default function AdminPage() {
           </Card>
         </Grid>
 
-        
+        {/* --- KAART 2: PRIJS AANPASSEN --- */}
         <Grid xs={12} md={6}>
           <Card>
             <CardContent>
@@ -205,8 +213,6 @@ export default function AdminPage() {
           </Card>
         </Grid>
         
-        {/* TODO: Hier kan de "Veiling Starten" knop komen */}
-
       </Grid>
     </Container>
   );
