@@ -54,6 +54,11 @@ namespace backend.Controllers
             return Ok(veiling);
         }
 
+        [HttpPost("koop")]
+        public async Task <IActionResult> Koop()
+        {
+            return Ok();
+        }
 
 
 
