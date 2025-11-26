@@ -18,6 +18,7 @@ import { useUser } from "./Contexts/UserContext";
 import { UserProvider } from "./Contexts/UserContext";
 import { baseTheme } from "./theme"; // your static theme
 import { buildTheme } from "./dynamicTheme";
+import VerkoperPage from "./Pages/VerkoperPage";
 
 // Build theme dynamically from UiSettings
 function ThemedRoutes() {
@@ -28,39 +29,7 @@ function ThemedRoutes() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <Routes>
-        <Route element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
-          <Route path="/" element={<Home />} />
-          <Route path="/about" element={<About />} />
-          <Route path="/contact" element={<Contact />} />
-          <Route path="/klok/:id" element={<Klok />} />
-          <Route path="/admin" element={<AdminPage />} />
-          <Route path="/settings" element={<Settings />} />
-        </Route>
-
-        <Route element={<AuthLayout />}>
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<Register />} />
-        </Route>
-
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </ThemeProvider>
-  );
-}
-
-const App: React.FC = () => (
-  <Router>
-    <UserProvider>
-      <AuthProvider>
-        <ThemedRoutes />
-      </AuthProvider>
-    </UserProvider>
-import VerkoperPage from "./Pages/VerkoperPage";
-
-const App: React.FC = () => (
-  <Router>
-    <Routes>
+<Routes>
       <Route element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
         <Route path="/" element={<Home />} />
         <Route path="/about" element={<About />} />
@@ -78,8 +47,21 @@ const App: React.FC = () => (
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    </ThemeProvider>
+  );
+}
+
+const App: React.FC = () => (
+  <Router>
+    <UserProvider>
+      <AuthProvider>
+        <ThemedRoutes />
+      </AuthProvider>
+    </UserProvider>
   </Router>
 );
+
+
 
 
 export default App;
