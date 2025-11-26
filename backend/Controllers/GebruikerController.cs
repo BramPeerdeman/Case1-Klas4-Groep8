@@ -1,15 +1,18 @@
 ﻿
 
 using backend.Data;
+using backend.DTOs;
 using backend.Models;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Any;
 using Microsoft.OpenApi.Models;
+using Newtonsoft.Json;
 using Swashbuckle.AspNetCore.SwaggerGen;
-using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
-using Microsoft.AspNetCore.Identity;
+using System.Text.Json;
 
 namespace backend.Controllers
 {
@@ -47,6 +50,36 @@ namespace backend.Controllers
             var token = GenerateJwtToken(gebruiker);
             return Ok(new { Message = "Gebruikersnaam bijgewerkt.", Token = token });
         }
+
+        [HttpGet("{id}/uisettings")]
+        [Authorize]
+        public async Task<IActionResult> GetUiSettings(string id)
+        {
+            var gebruiker = await _userManager.FindByIdAsync(id);
+            if (gebruiker == null) return NotFound();
+
+            var settings = string.IsNullOrEmpty(gebruiker.UiSettings)
+                ? new UiSettings() // default if empty
+                : JsonConvert.DeserializeObject<UiSettings>(gebruiker.UiSettings);
+
+            return Ok(settings);
+        }
+
+
+        [HttpPut("{id}/uisettings")]
+        [Authorize]
+        public async Task<IActionResult> UpdateUiSettings(string id, [FromBody] UiSettings settings)
+        {
+            var gebruiker = await _userManager.FindByIdAsync(id);
+            if (gebruiker == null) return NotFound();
+
+            gebruiker.UiSettings = JsonConvert.SerializeObject(settings);
+            await _userManager.UpdateAsync(gebruiker);
+
+            return Ok(new { Message = "UI settings updated." });
+        }
+
+
 
     }
 

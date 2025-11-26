@@ -137,6 +137,7 @@ if (app.Environment.IsDevelopment())
 }
 
 //app.UseHttpsRedirection();
+DotNetEnv.Env.Load();
 app.UseRouting();
 app.UseCors();
 app.UseAuthentication(); 
