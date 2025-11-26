@@ -12,8 +12,8 @@ using backend.Data;
 namespace backend.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20251124091240_AddImageUrl")]
-    partial class AddImageUrl
+    [Migration("20251126180849_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -252,6 +252,9 @@ namespace backend.Migrations
                     b.Property<float?>("Eindprijs")
                         .HasColumnType("real");
 
+                    b.Property<string>("ImageUrl")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<float?>("MinPrijs")
                         .HasColumnType("real");
 
@@ -265,7 +268,7 @@ namespace backend.Migrations
                     b.Property<string>("VeilerId")
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<int>("VerkoperID")
+                    b.Property<int?>("VerkoperID")
                         .HasColumnType("int");
 
                     b.HasKey("ProductID");

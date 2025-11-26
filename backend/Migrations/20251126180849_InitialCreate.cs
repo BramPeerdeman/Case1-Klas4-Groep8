@@ -244,8 +244,9 @@ namespace backend.Migrations
                     Beschrijving = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     StartPrijs = table.Column<float>(type: "real", nullable: true),
                     MinPrijs = table.Column<float>(type: "real", nullable: true),
+                    ImageUrl = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     Eindprijs = table.Column<float>(type: "real", nullable: true),
-                    VerkoperID = table.Column<int>(type: "int", nullable: false),
+                    VerkoperID = table.Column<int>(type: "int", nullable: true),
                     VeilerId = table.Column<string>(type: "nvarchar(450)", nullable: true)
                 },
                 constraints: table =>
