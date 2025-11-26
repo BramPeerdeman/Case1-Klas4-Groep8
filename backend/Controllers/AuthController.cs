@@ -57,7 +57,17 @@ public class AuthController : ControllerBase
                 gebruiker = new Koper();
                 break;
             case "veiler":
-                gebruiker = new Veiler();
+    // VALIDATIE: Check of het veld is ingevuld
+                if (string.IsNullOrEmpty(registerDto.KvkNummer))
+                {
+                    return BadRequest("KVK-nummer is verplicht voor veilers.");
+                }
+
+                // OPSLAAN: Maak de veiler aan MET het nummer
+                gebruiker = new Veiler 
+                { 
+                    KvkNummer = registerDto.KvkNummer 
+                };
                 break;
             case "admin":
                 gebruiker = new Admin();

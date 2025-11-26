@@ -6,11 +6,12 @@ public class Product
     public string Beschrijving { get; set; } = string.Empty;
     public float? StartPrijs { get; set; }
     public float? MinPrijs {  get; set; }
+    public string? ImageUrl { get; set; }
 
     public float? Eindprijs { get; set; }
 
     // Relatie naar Veiler
-    public int VerkoperID { get; set; }
+    public int? VerkoperID { get; set; }
 
 
     }

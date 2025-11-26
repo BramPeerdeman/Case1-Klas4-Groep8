@@ -31,7 +31,6 @@ namespace backend.Controllers
                 return Ok(new { nieuwePrijs });
             }
             return Ok();
-            
         }
 
         [HttpPost("veiling")]
@@ -40,9 +39,13 @@ namespace backend.Controllers
             Veiling veiling = new Veiling();
             //VeilingID methode moet nader bepaald worden of in cont of in sqldb
             veiling.StartDatumTijd = DateTime.Now;
-            veiling.VerkoperID = GeveildProduct.VerkoperID;
-            veiling.ProductID = GeveildProduct.ProductID;
+            
+            // --- HIER ZIT DE FIX ---
+            // We voegen '?? 0' toe. Dit betekent: "Als het null is, maak er dan 0 van."
+            veiling.VerkoperID = GeveildProduct.VerkoperID ?? 0;
+            // -----------------------
 
+            veiling.ProductID = GeveildProduct.ProductID;
 
             if (!ModelState.IsValid)
             {
@@ -54,6 +57,11 @@ namespace backend.Controllers
             return Ok(veiling);
         }
 
+        [HttpPost("koop")]
+        public async Task <IActionResult> Koop()
+        {
+            return Ok();
+        }
 
 
 

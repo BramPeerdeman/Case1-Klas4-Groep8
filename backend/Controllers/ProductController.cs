@@ -39,7 +39,7 @@ namespace backend.Controllers
 
             return Ok(product);
         }
-        [Authorize(Roles = "admin")]
+        [Authorize(Roles = "veiler")]
         [HttpPost("product")]
         public async Task<IActionResult> CreateProduct([FromBody] Product product)
         {

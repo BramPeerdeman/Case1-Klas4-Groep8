@@ -40,14 +40,16 @@ builder.Services.AddAuthentication(options =>
     };
 });   
 
-builder.Services.AddCors(o =>
+builder.Services.AddCors(options =>
 {
-    o.AddDefaultPolicy(p => p
-        .WithOrigins("http://localhost:5173", "https://localhost:5173")
-        .AllowAnyHeader()
-        .AllowAnyMethod()
-        .AllowCredentials());
-        });
+    options.AddDefaultPolicy(policy =>
+    {
+        policy.SetIsOriginAllowed(origin => true) 
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials(); 
+    });
+});
 
 
 // --- Controllers + Routing ---
@@ -135,6 +137,7 @@ if (app.Environment.IsDevelopment())
 }
 
 //app.UseHttpsRedirection();
+DotNetEnv.Env.Load();
 app.UseRouting();
 app.UseCors();
 app.UseAuthentication(); 
