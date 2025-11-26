@@ -2,6 +2,15 @@ import { useState, useEffect } from "react";
 import { Container, Box, TextField, Button, Typography, Card, CardContent } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../Contexts/AuthContext";
+import { useUser } from "../Contexts/UserContext";
+import { jwtDecode } from "jwt-decode";
+
+interface JwtPayload {
+  sub: string;
+  email: string;
+  name: string;
+  jti: string;
+}
 
 export default function Login() {
   const navigate = useNavigate();
@@ -9,45 +18,51 @@ export default function Login() {
   const [email, setEmail] = useState<string>("");
   const [password, setPassword] = useState<string>("");
   const [error, setError] = useState<string>(""); // // NIEUW: Om fouten te tonen
+  const { setUiSettings } = useUser(); // <-- import from UserContext
 
   useEffect(() => {
     if (isLoggedIn) navigate("/");
   }, [isLoggedIn, navigate]);
 
-  // NIEUW: De handleLogin functie is nu async
-  const handleLogin = async (event: React.FormEvent) => {
-    event.preventDefault(); // Voorkom dat de pagina herlaadt
-    setError(""); // Reset foutmeldingen bij nieuwe poging
+const handleLogin = async (event: React.FormEvent) => {
+  event.preventDefault();
+  setError("");
 
-    try {
-      const response = await fetch("http://localhost:5299/api/auth/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email: email,
-          wachtwoord: password, // Zorg dat deze namen matchen met je LoginDto
-        }),
+  try {
+    const response = await fetch("/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, wachtwoord: password }),
+    });
+
+    if (response.ok) {
+      const data = await response.json(); // UserDto with token
+      login(data.token); // store token in AuthContext
+
+      // Decode token to get userId
+      const decoded: JwtPayload = jwtDecode(data.token);
+      const userId = decoded.sub;
+
+      // Fetch UiSettings immediately
+      const settingsRes = await fetch(`/api/Gebruiker/${userId}/uisettings`, {
+        headers: { Authorization: `Bearer ${data.token}` },
       });
 
-      if (response.ok) {
-        // SUCCES!
-        const data = await response.json(); // Dit is je UserDto (met token)
-        
-        // Roep de 'login' functie uit je AuthContext aan MET de token
-        login(data.token); // <-- BELANGRIJK: je context moet de token opslaan
-        
-        navigate("/"); // Stuur door naar de homepagina
-      } else {
-        // FOUT: Backend gaf een 401 (Unauthorized) of andere fout
-        setError("Ongeldige e-mail of wachtwoord.");
+      if (settingsRes.ok) {
+        const raw = await settingsRes.json();
+        const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+        setUiSettings(parsed); // hydrate context
       }
-    } catch (err) {
-      // FOUT: Netwerkfout (bv. backend draait niet)
-      setError("Kan geen verbinding maken met de server.");
+
+      navigate("/"); // redirect to home
+    } else {
+      setError("Ongeldige e-mail of wachtwoord.");
     }
-  };
+  } catch (err) {
+    setError("Kan geen verbinding maken met de server.");
+  }
+};
+
 
   return (
     <Container maxWidth="sm" sx={{ mt: 8 }}>

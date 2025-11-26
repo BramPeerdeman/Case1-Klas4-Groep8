@@ -1,105 +1,102 @@
-import { createContext, useContext, useState, useEffect } from "react";
-import type { ReactNode } from "react";
-import { jwtDecode } from "jwt-decode"; 
+import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
+import { jwtDecode } from "jwt-decode";
+import { useUser } from "./UserContext";
 
-// We zoeken naar de officiële naam van de rol-claim
 interface DecodedToken {
+  sub: string;
+  email: string;
+  name: string;
+  jti: string;
   'http://schemas.microsoft.com/ws/2008/06/identity/claims/role': string | string[];
 }
 
 interface AuthContextType {
   isLoggedIn: boolean;
   isAdmin: boolean;
-  isVeiler: boolean; 
+  isVeiler: boolean;
+  user: DecodedToken | null;
   login: (token: string) => void;
   logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-interface AuthProviderProps {
-  children: ReactNode;
-}
-
-export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
-  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
-  const [isAdmin, setIsAdmin] = useState<boolean>(false);
-  const [isVeiler, setIsVeiler] = useState<boolean>(false); 
+export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [isVeiler, setIsVeiler] = useState(false);
+  const [user, setUser] = useState<DecodedToken | null>(null);
+  const { setUiSettings } = useUser();
 
   useEffect(() => {
-    const checkLogin = () => {
-      const token = localStorage.getItem("token");
-      if (token) {
-        setIsLoggedIn(true);
-        checkRoles(token); 
-      } else {
-        setIsLoggedIn(false);
-        setIsAdmin(false);
-        setIsVeiler(false); 
-      }
-    };
-    
-    checkLogin();
-    window.addEventListener("storage", checkLogin);
-    return () => window.removeEventListener("storage", checkLogin);
-  }, []);
-
-  // Deze functie leest het paspoort en zoekt naar stempels
-  const checkRoles = (token: string) => {
-    try {
-      const decodedToken = jwtDecode<DecodedToken>(token);
-      
-      // Lees de rol-claim (kan een string zijn of een lijst strings)
-      const roleClaim = decodedToken['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'];
-
-      // Reset eerst alles naar false
+    const token = localStorage.getItem("token");
+    if (token) {
+      setIsLoggedIn(true);
+      decodeAndSetUser(token);
+      fetchUiSettings(token);
+    } else {
+      setIsLoggedIn(false);
       setIsAdmin(false);
       setIsVeiler(false);
+      setUser(null);
+    }
+  }, []);
 
-      if (roleClaim) {
-        // Helper: Checkt of een specifieke rol aanwezig is
-        const hasRole = (roleToCheck: string) => {
-            if (Array.isArray(roleClaim)) {
-                return roleClaim.includes(roleToCheck);
-            }
-            return roleClaim === roleToCheck;
-        };
+  const decodeAndSetUser = (token: string) => {
+    try {
+      const decoded = jwtDecode<DecodedToken>(token);
+      setUser(decoded);
 
-        // Zet de switches om
-        setIsAdmin(hasRole("admin"));
-        setIsVeiler(hasRole("veiler")); 
-      }
-    } catch (error) {
-      console.error("Failed to decode token:", error);
+      const roleClaim = decoded['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'];
+      const hasRole = (role: string) =>
+        Array.isArray(roleClaim) ? roleClaim.includes(role) : roleClaim === role;
+
+      setIsAdmin(hasRole("admin"));
+      setIsVeiler(hasRole("veiler"));
+    } catch (err) {
+      console.error("Failed to decode token:", err);
       logout();
     }
   };
 
-  const login = (token: string): void => {
-    localStorage.setItem("token", token);
-    setIsLoggedIn(true);
-    checkRoles(token); 
-    window.dispatchEvent(new Event("storage"));
+  const fetchUiSettings = async (token: string) => {
+    const decoded = jwtDecode<DecodedToken>(token);
+    const res = await fetch(`/api/Gebruiker/${decoded.sub}/uisettings`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (res.ok) {
+      const raw = await res.json();
+      const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+      setUiSettings(parsed);
+    }
   };
 
-  const logout = (): void => {
+  const login = (token: string) => {
+    localStorage.setItem("token", token);
+    setIsLoggedIn(true);
+    decodeAndSetUser(token);
+    fetchUiSettings(token);
+  };
+
+  const logout = () => {
     localStorage.removeItem("token");
     setIsLoggedIn(false);
-    setIsAdmin(false); 
-    setIsVeiler(false); 
-    window.dispatchEvent(new Event("storage"));
+    setIsAdmin(false);
+    setIsVeiler(false);
+    setUser(null);
+    setUiSettings({ theme: "light", highContrast: false, fontSize: 16 });
   };
 
   return (
-    // Geef 'isVeiler' ook door aan de rest van de app
-    <AuthContext.Provider value={{ isLoggedIn, isAdmin, isVeiler, login, logout }}>
+    <AuthContext.Provider value={{ isLoggedIn, isAdmin, isVeiler, user, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
 };
 
-export const useAuth = (): AuthContextType => {
-  const context = useContext(AuthContext);
-  if (!context) throw new Error("useAuth must be used within AuthProvider");
-  return context;
+export const useAuth = () => {
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error("useAuth must be used within AuthProvider");
+  return ctx;
 };
+
