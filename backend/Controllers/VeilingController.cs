@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.SignalR;
 using backend.Hubs;
 
+
 namespace backend.Controllers
 {
     [ApiController]
@@ -55,5 +56,16 @@ namespace backend.Controllers
             await _context.SaveChangesAsync();
             return Ok(veiling);
         }
+
+        [HttpPost("koop")]
+        public async Task <IActionResult> Koop()
+        {
+            return Ok();
+        }
+
+
+
+
+
     }
 }

@@ -14,7 +14,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../Contexts/AuthContext";
 
 export default function Navbar() {
-  const { isLoggedIn, logout, isAdmin } = useAuth();
+  const { isLoggedIn, logout, isAdmin, isVeiler } = useAuth();
   const navigate = useNavigate();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
 
@@ -94,16 +94,26 @@ export default function Navbar() {
             <Button
               color="inherit"
               component={Link}
-              to="/admin"
+              to="/Veilingmeester"
               sx={{
                 fontWeight: "bold",
                 color: "yellow",
                 "&:focus": { outline: "2px solid #fff", outlineOffset: "2px" },
               }}
             >
-              Admin
+              Veilingmeester
             </Button>
           )}
+          {isVeiler && (
+          <Button 
+            color="inherit" 
+            component={Link} 
+            to="/verkoper" 
+            sx={{ fontWeight: 'bold', color: 'lightgreen' }}
+          >
+            Verkoper Dashboard
+          </Button>
+        )}
 
           {/* Accessible user menu */}
           <IconButton

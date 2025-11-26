@@ -11,6 +11,7 @@ export default function Register() {
   const [gebruikersnaam, setGebruikersnaam] = useState<string>("");
   const [voornaam, setVoornaam] = useState<string>("");
   const [achternaam, setAchternaam] = useState<string>("");
+  const [kvkNummer, setKvkNummer] = useState<string>("");
   const [type, setType] = useState<string>("koper"); // Standaard "koper"
   
   const [error, setError] = useState<string>(""); // Voor foutmeldingen
@@ -32,6 +33,7 @@ export default function Register() {
           voornaam: voornaam,
           achternaam: achternaam,
           type: type, // "koper", "veiler", etc.
+          kvkNummer: type === "veiler" ? kvkNummer : null 
         }),
       });
 
@@ -96,6 +98,16 @@ export default function Register() {
               </Select>
             </FormControl>
 
+              {type === "veiler" && (
+                <TextField
+                  label="KVK Nummer"
+                  variant="outlined"
+                  value={kvkNummer}
+                  onChange={(e) => setKvkNummer(e.target.value)}
+                  required
+                  fullWidth
+                />
+              )}
             {/* Toon de foutmelding als die er is */}
             {error && (
               <Typography color="error" align="center" sx={{ mt: 1 }}>
