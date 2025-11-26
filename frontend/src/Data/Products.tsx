@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 // 1. Probeer de .env variabele, maar als die leeg is, gebruik localhost:5299
 const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5299';
 
-// 2. Plak de rest eraan vast
+
 const apiUrl = `${baseUrl}/api/Product/products`;
 
 
