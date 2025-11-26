@@ -10,6 +10,7 @@ import ProtectedRoute from "./Components/ProtectedRoute";
 import Register from './Pages/Register';
 import AdminPage from "./Pages/AdminPage";
 import Settings from "./Pages/Settings";
+import VerkoperPage from "./Pages/VerkoperPage";
 
 const App: React.FC = () => (
   <Router>
@@ -19,7 +20,8 @@ const App: React.FC = () => (
         <Route path="/about" element={<About />} />
         <Route path="/contact" element={<Contact />} />
         <Route path="/klok/:id" element={<Klok />} />
-        <Route path="/admin" element={<AdminPage />} />
+        <Route path="/Veilingmeester" element={<AdminPage />} />
+        <Route path="/verkoper" element={<VerkoperPage />} />
         <Route path="/settings" element={<Settings />} />
       </Route>
 

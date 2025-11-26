@@ -1,17 +1,16 @@
-import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
-
+import { createContext, useContext, useState, useEffect } from "react";
+import type { ReactNode } from "react";
 import { jwtDecode } from "jwt-decode"; 
 
-// 1. DIT IS DE GROTE WIJZIGING!
-// We vertellen de decoder om te zoeken naar de *echte* naam van de claim.
+// We zoeken naar de officiële naam van de rol-claim
 interface DecodedToken {
-  // We moeten de naam van de claim tussen aanhalingstekens zetten
   'http://schemas.microsoft.com/ws/2008/06/identity/claims/role': string | string[];
 }
 
 interface AuthContextType {
   isLoggedIn: boolean;
   isAdmin: boolean;
+  isVeiler: boolean; 
   login: (token: string) => void;
   logout: () => void;
 }
@@ -25,16 +24,18 @@ interface AuthProviderProps {
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
+  const [isVeiler, setIsVeiler] = useState<boolean>(false); 
 
   useEffect(() => {
     const checkLogin = () => {
       const token = localStorage.getItem("token");
       if (token) {
         setIsLoggedIn(true);
-        checkAdminStatus(token); 
+        checkRoles(token); 
       } else {
         setIsLoggedIn(false);
         setIsAdmin(false);
+        setIsVeiler(false); 
       }
     };
     
@@ -43,24 +44,30 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     return () => window.removeEventListener("storage", checkLogin);
   }, []);
 
-  const checkAdminStatus = (token: string) => {
+  // Deze functie leest het paspoort en zoekt naar stempels
+  const checkRoles = (token: string) => {
     try {
       const decodedToken = jwtDecode<DecodedToken>(token);
       
-      // 2. OOK HIER DE WIJZIGING:
-      // We lezen nu de data uit het veld met de lange naam.
+      // Lees de rol-claim (kan een string zijn of een lijst strings)
       const roleClaim = decodedToken['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'];
 
-      // 3. We controleren de 'roleClaim' variabele
+      // Reset eerst alles naar false
+      setIsAdmin(false);
+      setIsVeiler(false);
+
       if (roleClaim) {
-        if (Array.isArray(roleClaim)) {
-          setIsAdmin(roleClaim.includes("admin"));
-        } 
-        else if (typeof roleClaim === "string") {
-          setIsAdmin(roleClaim === "admin");
-        }
-      } else {
-        setIsAdmin(false);
+        // Helper: Checkt of een specifieke rol aanwezig is
+        const hasRole = (roleToCheck: string) => {
+            if (Array.isArray(roleClaim)) {
+                return roleClaim.includes(roleToCheck);
+            }
+            return roleClaim === roleToCheck;
+        };
+
+        // Zet de switches om
+        setIsAdmin(hasRole("admin"));
+        setIsVeiler(hasRole("veiler")); 
       }
     } catch (error) {
       console.error("Failed to decode token:", error);
@@ -71,7 +78,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const login = (token: string): void => {
     localStorage.setItem("token", token);
     setIsLoggedIn(true);
-    checkAdminStatus(token);
+    checkRoles(token); 
     window.dispatchEvent(new Event("storage"));
   };
 
@@ -79,11 +86,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     localStorage.removeItem("token");
     setIsLoggedIn(false);
     setIsAdmin(false); 
+    setIsVeiler(false); 
     window.dispatchEvent(new Event("storage"));
   };
 
   return (
-    <AuthContext.Provider value={{ isLoggedIn, isAdmin, login, logout }}>
+    // Geef 'isVeiler' ook door aan de rest van de app
+    <AuthContext.Provider value={{ isLoggedIn, isAdmin, isVeiler, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
