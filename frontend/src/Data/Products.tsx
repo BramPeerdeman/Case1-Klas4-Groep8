@@ -1,8 +1,13 @@
 import { useState, useEffect } from 'react';
 
 
-//lokaal misschien even terugzetten naar 7242.
-const apiUrl = 'http://localhost:5299/api/Product/products';
+// 1. Probeer de .env variabele, maar als die leeg is, gebruik localhost:5299
+const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5299';
+
+// 2. Plak de rest eraan vast
+const apiUrl = `${baseUrl}/api/Product/products`;
+
+
 
 interface ApiProduct {
     productID: number;
