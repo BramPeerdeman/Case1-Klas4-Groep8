@@ -1,11 +1,13 @@
+using backend.DTOs;
 using backend.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using backend.DTOs;
+using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
-using Microsoft.IdentityModel.Tokens;
+using System.Text.Json;
 
 namespace backend.Controllers;
 [ApiController]
@@ -115,7 +117,36 @@ public class AuthController : ControllerBase
             Token = token
         });
     }
-    
+
+    //[HttpGet("settings")]
+    //[Authorize]
+    //public async Task<IActionResult> GetSettings()
+    //{
+    //    var userId = User.FindFirstValue(JwtRegisteredClaimNames.Sub);
+    //    var gebruiker = await _userManager.FindByIdAsync(userId);
+    //    if (gebruiker == null) return NotFound();
+
+    //    var settings = string.IsNullOrEmpty(gebruiker.UiSettings)
+    //        ? "{}"
+    //        : gebruiker.UiSettings;
+
+    //    return Ok(settings);
+    //}
+
+    //[HttpPut("settings")]
+    //[Authorize]
+    //public async Task<IActionResult> UpdateSettings([FromBody] JsonElement settings)
+    //{
+    //    var userId = User.FindFirstValue(JwtRegisteredClaimNames.Sub);
+    //    var gebruiker = await _userManager.FindByIdAsync(userId);
+    //    if (gebruiker == null) return NotFound();
+
+    //    gebruiker.UiSettings = settings.GetRawText(); // store JSON string
+    //    await _userManager.UpdateAsync(gebruiker);
+
+    //    return Ok(new { Message = "Settings updated." });
+    //}
+
     private async Task<string> GenerateJwtToken(Gebruiker gebruiker)
 {
     

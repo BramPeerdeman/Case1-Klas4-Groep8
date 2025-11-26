@@ -39,7 +39,7 @@ export default function Navbar() {
               Admin
             </Button>
           )}
-
+          
           <Avatar src="https://i.pravatar.cc/40" sx={{ cursor: "pointer" }} onClick={handleMenuOpen} />
           <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleMenuClose}>
             <MenuItem onClick={handleProfile}>Profile</MenuItem>
