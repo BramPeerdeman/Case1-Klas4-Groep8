@@ -8,6 +8,8 @@ namespace backend.DTOs
         public string Gebruikersnaam { get; set; } = string.Empty;
         public string Voornaam { get; set; } = string.Empty;
         public string Achternaam { get; set; } = string.Empty;
+        
+        public string? KvkNummer { get; set; } // Alleen voor Veiler
         public string Type { get; set; } = string.Empty; // "koper", "veiler", of "admin"
     }
 
