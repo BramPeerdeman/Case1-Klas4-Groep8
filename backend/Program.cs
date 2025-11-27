@@ -1,6 +1,7 @@
 using backend.Data;
 using backend.Hubs;
 using backend.Models;
+using DotNetEnv;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
 using System.Text.Json.Serialization;
@@ -10,7 +11,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 
-
+Env.Load();
 var builder = WebApplication.CreateBuilder(args);
 
 // --- Database (SQL Server) ---
@@ -137,7 +138,7 @@ if (app.Environment.IsDevelopment())
 }
 
 //app.UseHttpsRedirection();
-DotNetEnv.Env.Load();
+
 app.UseRouting();
 app.UseCors();
 app.UseAuthentication(); 

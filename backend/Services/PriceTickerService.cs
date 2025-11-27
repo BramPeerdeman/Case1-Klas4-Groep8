@@ -6,7 +6,7 @@ using backend.Hubs;
 
 namespace backend.Services
 {
-     /*public class PriceTickerService : BackgroundService
+   /* public class PriceTickerService : BackgroundService
     {
         private readonly IHubContext<AuctionHub> _hub;
         public PriceTickerService(IHubContext<AuctionHub> hub)
@@ -14,5 +14,6 @@ namespace backend.Services
             _hub = hub;
         }
 
+     
     } */
 }
