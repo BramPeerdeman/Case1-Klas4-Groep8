@@ -13,6 +13,7 @@ export default function Settings() {
     if (!user) return;
 
     const token = localStorage.getItem("token");
+    console.log(`/api/Gebruiker/${user.sub}/uisettings`)
     const res = await fetch(`/api/Gebruiker/${user.sub}/uisettings`, {
       method: "PUT",
       headers: {

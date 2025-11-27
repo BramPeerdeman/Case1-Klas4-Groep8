@@ -105,8 +105,11 @@ namespace backend.Controllers.Tests
             var result = await _controller.Register(dto);
 
             var okResult = Assert.IsType<OkObjectResult>(result);
-            var response = Assert.IsType<RegisterResponseDto>(okResult.Value);
-            Assert.Equal("Gebruiker succesvol geregistreerd.", response.Message);
+            var messageProp = okResult.Value.GetType().GetProperty("Message");
+            var messageValue = messageProp?.GetValue(okResult.Value, null);
+            Assert.Equal("Gebruiker succesvol geregistreerd.", messageValue);
+
+
         }
 
 

@@ -1,11 +1,11 @@
 using backend.Data;
 using backend.Hubs;
 using backend.Models;
-using DotNetEnv;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
+using DotNetEnv;
 using System.Text;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -138,7 +138,6 @@ if (app.Environment.IsDevelopment())
 }
 
 //app.UseHttpsRedirection();
-
 app.UseRouting();
 app.UseCors();
 app.UseAuthentication(); 
