@@ -29,24 +29,24 @@ function ThemedRoutes() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-<Routes>
-      <Route element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
-        <Route path="/" element={<Home />} />
-        <Route path="/about" element={<About />} />
-        <Route path="/contact" element={<Contact />} />
-        <Route path="/klok/:id" element={<Klok />} />
-        <Route path="/Veilingmeester" element={<AdminPage />} />
-        <Route path="/verkoper" element={<VerkoperPage />} />
-        <Route path="/settings" element={<Settings />} />
-      </Route>
+      <Routes>
+        <Route element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
+          <Route path="/" element={<Home />} />
+          <Route path="/about" element={<About />} />
+          <Route path="/contact" element={<Contact />} />
+          <Route path="/klok/:id" element={<Klok />} />
+          <Route path="/Veilingmeester" element={<AdminPage />} />
+          <Route path="/verkoper" element={<VerkoperPage />} />
+          <Route path="/settings" element={<Settings />} />
+        </Route>
 
-      <Route element={<AuthLayout />}>
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/register" element={<Register />} />
-      </Route>
+        <Route element={<AuthLayout />}>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<Register />} />
+        </Route>
 
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
     </ThemeProvider>
   );
 }
