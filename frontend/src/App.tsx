@@ -19,6 +19,7 @@ import { UserProvider } from "./Contexts/UserContext";
 import { baseTheme } from "./theme"; // your static theme
 import { buildTheme } from "./dynamicTheme";
 import VerkoperPage from "./Pages/VerkoperPage";
+import Detail from "./Pages/Detail";
 
 // Build theme dynamically from UiSettings
 function ThemedRoutes() {
@@ -61,9 +62,6 @@ const App: React.FC = () => (
     </UserProvider>
   </Router>
 );
-
-
-
 
 export default App;
 

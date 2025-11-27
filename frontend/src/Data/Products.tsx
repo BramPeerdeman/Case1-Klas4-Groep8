@@ -1,31 +1,17 @@
 import { useState, useEffect } from 'react';
 
-
-// 1. Probeer de .env variabele, maar als die leeg is, gebruik localhost:5299
 const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5299';
-
-
 const apiUrl = `${baseUrl}/api/Product/products`;
 
-
-
-interface ApiProduct {
-    productID: number;
-    naam: string;
-    beschrijving: string;
-    startPrijs: number | null;
-    minPrijs: number | null;
-    eindprijs: number | null;
-    verkoperID: number;
-    imageUrl?: string; 
-}
-
-// Interface voor de Frontend
+// We gebruiken hier nu DEZELFDE namen als C# (Backend)
+// Dit voorkomt verwarring tussen 'id' en 'productID'
 export interface Product {
-    id: number;
-    name: string;
-    price: number;
+    productID: number;      // Was voorheen 'id'
+    naam: string;           // Was voorheen 'name'
+    beschrijving: string;
+    startPrijs: number;     // Was voorheen 'price'
     imageUrl?: string;
+    verkoperID?: number;
 }
 
 function fetchProducts() {
@@ -36,23 +22,20 @@ function fetchProducts() {
         async function getProducts() {
             try {
                 const response = await fetch(apiUrl);
-                console.log('API response status:', response.status);
                 
-                const data: ApiProduct[] = await response.json();
-                
-                const transformedProducts: Product[] = data.map(item => {
-                    return {
-                        id: item.productID,
-                        name: item.naam,
-                        // Als startPrijs null is, maak er 0 van
-                        price: item.startPrijs ?? 0, 
-                        // 2. HIER KOPPELEN WE DE AFBEELDING
-                        imageUrl: item.imageUrl 
-                    };
-                });
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    // We hoeven NIET meer te mappen naar nieuwe namen.
+                    // We zorgen alleen dat null-waardes worden opgevangen.
+                    const cleanData: Product[] = data.map((item: any) => ({
+                        ...item,
+                        startPrijs: item.startPrijs ?? 0, // Zorg dat prijs nooit null is
+                        // We behouden productID, naam, etc. zoals ze zijn
+                    }));
 
-                setProducts(transformedProducts);
-                console.log('Fetched products:', transformedProducts);
+                    setProducts(cleanData);
+                }
             } catch (error) {
                 console.error('Error fetching products:', error);
             } finally {

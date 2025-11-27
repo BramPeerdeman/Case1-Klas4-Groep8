@@ -1,81 +1,100 @@
-import { Box, Container, Grid, Typography, Button } from "@mui/material";
-import ProductCard from "../Components/ProductCard";
-import { fetchProducts } from "../Data/Products";
-import { useEffect, useState } from "react";
+import { Box, Container, Grid, Typography, Button, Card, CardContent, CardMedia, Chip } from "@mui/material";
+import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import { fetchProducts } from "../Data/Products"; 
 
 export default function Home() {
-  // ✅ Always call hooks at the top
-  const { products, loading } = fetchProducts();
-  const [featuredProduct, setFeaturedProduct] = useState<typeof products[0] | null>(null);
   const navigate = useNavigate();
+  const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5299';
+  
+  const { products, loading } = fetchProducts();
+  
+  const [activeProductId, setActiveProductId] = useState<number | null>(null);
+  const pollingRef = useRef<number | null>(null);
 
-  // ✅ Set a featured product once products are loaded
   useEffect(() => {
-    if (!loading && products.length > 0) {
-      setFeaturedProduct(products[0]); // first product as featured
-    }
-  }, [loading, products]);
+    const checkActive = async () => {
+        try {
+            const res = await fetch(`${baseUrl}/api/Auction/active`);
+            if (res.ok) {
+                const data = await res.json();
+                setActiveProductId(data.activeId);
+            }
+        } catch (e) { console.error(e); }
+    };
+    
+    checkActive();
+    pollingRef.current = window.setInterval(checkActive, 1000);
+    return () => { if (pollingRef.current) clearInterval(pollingRef.current); };
+  }, []);
 
-  // ✅ Render loading state while products are fetching
-  if (loading) return <div>Loading...</div>;
+  const heroProduct = activeProductId 
+    ? products.find(p => p.productID === activeProductId) 
+    : (products.length > 0 ? products[0] : null);
 
-  // ✅ If no products available
-  if (!featuredProduct) return <div>Geen producten beschikbaar</div>;
+  if (loading) return <div>Laden...</div>;
 
   return (
     <>
-      {/* Featured Product Hero */}
-      <Box
-        position="relative"
-        sx={{
-          width: "100%",
-          height: "400px",
-          backgroundImage: `url('${featuredProduct.imageUrl}')`,
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-          borderRadius: 2,
-          mt: 0,
-        }}
-      >
-        {/* Gradient overlay for button visibility */}
-        <Box
-          position="absolute"
-          top={0}
-          left={0}
-          width="100%"
-          height="100%"
-          sx={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.2), rgba(0,0,0,0.5))' }}
-        />
+      {/* HERO / LIVE SECTIE */}
+      {heroProduct && (
+        <Box sx={{
+            position: "relative", width: "100%", height: "500px", mb: 4,
+            backgroundImage: `url('${heroProduct.imageUrl}')`,
+            backgroundSize: "cover", backgroundPosition: "center",
+            transition: "background-image 0.5s ease-in-out"
+        }}>
+          <Box sx={{ 
+             position: "absolute", inset: 0,
+             background: activeProductId 
+                ? 'linear-gradient(to top, rgba(211, 47, 47, 0.85), rgba(0,0,0,0.1))' 
+                : 'linear-gradient(to top, rgba(0,0,0,0.8), rgba(0,0,0,0.1))'
+          }} />
 
-        {/* Button on top of image */}
-        <Button
-          variant="contained"
-          color="primary"
-          sx={{
-            position: "absolute",
-            bottom: 16,
-            right: 16,
-            zIndex: 10,
-          }}
-          onClick={() => navigate(`/klok/${featuredProduct.id}`)}
-        >
-          Naar veiling
-        </Button>
-      </Box>
+          <Container sx={{ position: "relative", height: "100%", display: "flex", alignItems: "flex-end", pb: 6 }}>
+            <Box color="white">
+              {activeProductId === heroProduct.productID && (
+                  <Chip label="🔴 NU LIVE: BIEDEN MAAR!" color="error" sx={{ mb: 2, fontWeight: 'bold' }} />
+              )}
+              <Typography variant="h2" fontWeight="bold">{heroProduct.naam}</Typography>
+              <Typography variant="h6" sx={{ mb: 3 }}>{heroProduct.beschrijving}</Typography>
+              
+              <Button
+                variant="contained"
+                color={activeProductId ? "error" : "primary"}
+                size="large"
+                onClick={() => navigate(`/klok/${heroProduct.productID}`)}
+                sx={{ px: 5, py: 1.5, borderRadius: 50, fontSize: '1.2rem' }}
+              >
+                {activeProductId ? "GA NAAR DE ZAAL" : "Bekijk Product"}
+              </Button>
+            </Box>
+          </Container>
+        </Box>
+      )}
 
-      <Container sx={{ py: 6 }}>
-        <Typography variant="h4" gutterBottom>
-          Populaire producten
-        </Typography>
-
-        <Grid container spacing={{ xs: 2, md: 3 }} columns={{ xs: 4, sm: 8, md: 12 }}>
-          {products.map((product) => (
-            <Grid key={product.id} size={{xs: 2, sm:4, md: 4}}>
-              <ProductCard product={product} />
+      {/* CATALOGUS */}
+      <Container sx={{ pb: 8 }}>
+        <Typography variant="h4" gutterBottom>Alle Producten</Typography>
+        
+        {/* === HIER IS DE AANGEPASTE GRID === */}
+        <Grid container spacing={4}>
+          {products.map((p) => (
+            <Grid key={p.productID} size={{ xs: 12, sm: 6, md: 4 }}>
+              <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+                <CardMedia component="img" height="200" image={p.imageUrl} alt={p.naam} />
+                <CardContent>
+                  <Typography variant="h6">{p.naam}</Typography>
+                  <Typography variant="body2" color="text.secondary">Startprijs: €{p.startPrijs}</Typography>
+                  <Button size="small" onClick={() => navigate(`/klok/${p.productID}`)} sx={{ mt: 2 }}>
+                    Bekijk
+                  </Button>
+                </CardContent>
+              </Card>
             </Grid>
           ))}
         </Grid>
+        
       </Container>
     </>
   );
