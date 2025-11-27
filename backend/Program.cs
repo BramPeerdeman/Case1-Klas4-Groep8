@@ -5,11 +5,13 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
+using DotNetEnv;
 using System.Text;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 
+Env.Load();
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -137,7 +139,6 @@ if (app.Environment.IsDevelopment())
 }
 
 //app.UseHttpsRedirection();
-DotNetEnv.Env.Load();
 app.UseRouting();
 app.UseCors();
 app.UseAuthentication(); 
