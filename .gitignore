@@ -5,6 +5,8 @@
 # Build folders
 backend/bin/
 backend/obj/
+backendTests/bin/
+backendTests/obj/
 
 # User-specific files
 backend/*.user

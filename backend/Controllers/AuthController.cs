@@ -93,7 +93,7 @@ public class AuthController : ControllerBase
         var rol = registerDto.Type.ToLower();
         await _userManager.AddToRoleAsync(gebruiker, rol);
 
-        return Ok(new { Message = "Gebruiker succesvol geregistreerd." });
+        return Ok(new RegisterResponseDto { Message = "Gebruiker succesvol geregistreerd." });
     }
 
     [HttpPost("login")]
