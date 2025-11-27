@@ -27,6 +27,8 @@ namespace backend.Services
             auction.StartTime = DateTime.Now;
             auction.BuyerName = null;
             auction.FinalPrice = 0;
+
+            CurrentActiveProductId = productId;
         }
 
         // 2. Status ophalen (Aangeroepen door Klant/Klok elke seconde)
