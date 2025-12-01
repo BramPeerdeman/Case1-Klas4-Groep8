@@ -1,6 +1,7 @@
 using backend.Data;
 using backend.Hubs;
 using backend.Models;
+using backend.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
 using System.Text.Json.Serialization;
@@ -96,6 +97,7 @@ builder.Services.AddSwaggerGen(c =>
 });
 
 builder.Services.AddSignalR();
+builder.Services.AddSingleton<backend.Services.AuctionService>();
 var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
