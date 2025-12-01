@@ -1,17 +1,19 @@
 using backend.Data;
 using backend.Hubs;
 using backend.Models;
+using backend.Services;
+using DotNetEnv;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using System.Text;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
-using DotNetEnv;
-using System.Text;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.IdentityModel.Tokens;
 
 Env.Load();
+
 var builder = WebApplication.CreateBuilder(args);
 
 // --- Database (SQL Server) ---
@@ -52,6 +54,7 @@ builder.Services.AddCors(options =>
     });
 });
 
+builder.Services.AddHostedService<PriceTickerService>();
 
 // --- Controllers + Routing ---
 builder.Services.AddControllers()
