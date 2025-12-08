@@ -79,7 +79,7 @@ namespace backend.Controllers
         }
         [Authorize(Roles = "admin")]
         [HttpPut("product/{id}/veranderprijs")]
-        public async Task<IActionResult> UpdateProductPrice(int id, [FromBody] float newPrice)
+        public async Task<IActionResult> UpdateProductPrice(int id, [FromBody] decimal newPrice)
         {
             var product = await _context.Producten.FindAsync(id);
             if (product == null)
