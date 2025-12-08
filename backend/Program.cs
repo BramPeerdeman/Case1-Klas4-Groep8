@@ -2,6 +2,7 @@ using backend.Data;
 using backend.Hubs;
 using backend.Models;
 using backend.Services;
+using backend.interfaces;
 using DotNetEnv;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
@@ -55,6 +56,7 @@ builder.Services.AddCors(options =>
 });
 
 builder.Services.AddHostedService<PriceTickerService>();
+builder.Services.AddScoped<IAuctionService, AuctionService>();
 
 // --- Controllers + Routing ---
 builder.Services.AddControllers()

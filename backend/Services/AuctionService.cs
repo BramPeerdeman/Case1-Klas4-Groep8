@@ -1,10 +1,11 @@
 ﻿using backend.Data;
+using backend.interfaces;
 using Microsoft.EntityFrameworkCore;
 
 
 namespace backend.Services
 {
-    public class AuctionService
+    public class AuctionService: IAuctionService
     {
         private readonly AppDbContext _db;
 
