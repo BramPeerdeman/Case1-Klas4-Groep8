@@ -14,6 +14,8 @@ public class Product
     public decimal? MinPrijs {  get; set; }
     public string? ImageUrl { get; set; }
 
+    public bool IsAuctionable { get; set; } = false;
+
     public float? Eindprijs { get; set; }
 
     // Relatie naar Veiler
