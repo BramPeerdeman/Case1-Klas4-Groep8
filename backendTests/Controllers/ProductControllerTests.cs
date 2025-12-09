@@ -92,7 +92,7 @@ namespace backend.Controllers.Tests
         }
 
         // -------------------------------------------------------------------
-        // OTHER PRODUCT TESTS (Optional, but good for context)
+        // OTHER PRODUCT TESTS
         // -------------------------------------------------------------------
 
         [Fact]
@@ -117,6 +117,49 @@ namespace backend.Controllers.Tests
 
             Assert.Single(products); // Should only find 1 product
             Assert.Equal("Niet Veilbaar", products[0].Naam);
+        }
+
+        [Fact]
+        public async Task Admin_UpdateProductPrice_Should_Update_Price_In_Database()
+        {
+            // Arrange
+            using var dbContext = GetInMemoryDbContext();
+            var testProduct = new Product
+            {
+                ProductID = 1,
+                Naam = "Test Bloem",
+                StartPrijs = 10,
+                VerkoperID = 2
+            };
+            dbContext.Producten.Add(testProduct);
+            await dbContext.SaveChangesAsync();
+
+            var controller = new ProductController(dbContext);
+
+            // Act
+            var result = await controller.UpdateProductPrice(1, 25);
+
+            // Assert
+            Assert.IsType<OkObjectResult>(result);
+
+            var dbProduct = await dbContext.Producten.FindAsync(1);
+            Assert.Equal(25, dbProduct.StartPrijs);
+        }
+        [Fact]
+        public async Task Admin_UpdateProductPrice_Should_Return_NotFound_If_ID_Is_Wrong()
+        {
+
+            // We maken een LEGE database (we voegen geen producten toe)
+            using var dbContext = GetInMemoryDbContext();
+            var controller = new ProductController(dbContext);
+
+
+            // We proberen product met ID 99 te updaten (terwijl de database leeg is)
+            var result = await controller.UpdateProductPrice(99, 50);
+
+
+            // We verwachten dat de controller zegt: "NotFound" (404)
+            Assert.IsType<NotFoundResult>(result);
         }
     }
 }
