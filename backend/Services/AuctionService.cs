@@ -37,7 +37,20 @@ namespace backend.Services
             await _db.SaveChangesAsync(ct);
         }
 
-        public async Task 
+        public async Task CreateQueueAsync()
+        {
+            
+        }
+
+        public async Task StartAuctionAsync()
+        {
+
+        }
+
+        public async Task StartnextAuctionAsync()
+        {
+
+        }
     }
 
 }
