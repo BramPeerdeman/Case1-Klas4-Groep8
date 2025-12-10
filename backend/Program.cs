@@ -57,6 +57,7 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddHostedService<PriceTickerService>();
 builder.Services.AddScoped<IAuctionService, AuctionService>();
+builder.Services.AddScoped<IProductService, ProductService>();
 
 // --- Controllers + Routing ---
 builder.Services.AddControllers()

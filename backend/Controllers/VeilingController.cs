@@ -1,9 +1,12 @@
 ﻿using backend.Data;
 using backend.Models;
+using backend.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.SignalR;
 using backend.Hubs;
+using backend.interfaces;
+using Microsoft.AspNetCore.Authorization;
 
 
 namespace backend.Controllers
@@ -14,11 +17,12 @@ namespace backend.Controllers
     {
         private readonly AppDbContext _context;
         private readonly IHubContext<AuctionHub> _hub;
-
-        public VeilingController(AppDbContext context, IHubContext<AuctionHub> hub)
+        private readonly IAuctionService _auctionService;
+        public VeilingController(AppDbContext context, IHubContext<AuctionHub> hub, IAuctionService auctionService)
         {
             _context = context;
             _hub = hub;
+            _auctionService = auctionService;
         }
 
         [HttpGet("veiling/currentprice")]
@@ -32,7 +36,7 @@ namespace backend.Controllers
             }
             return Ok();
         }
-
+        [Authorize(Roles = "admin")]
         [HttpPost("veiling")]
         public async Task<IActionResult> StartVeiling([FromBody] Product GeveildProduct)
         {
@@ -55,6 +59,13 @@ namespace backend.Controllers
             _context.Veilingen.Add(veiling);
             await _context.SaveChangesAsync();
             return Ok(veiling);
+        }
+        [Authorize(Roles ="admin")]
+        [HttpPost("sync-veilbaar")]
+        public async Task<IActionResult> SyncVeilBareProducten()
+        {
+            await _auctionService.MoveNewAuctionableProductsAsync();
+            return Ok();
         }
 
         [HttpPost("koop")]
