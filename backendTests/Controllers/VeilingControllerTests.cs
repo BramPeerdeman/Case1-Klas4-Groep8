@@ -97,5 +97,34 @@ namespace backend.Controllers.Tests
             // Should be 0 because of your "?? 0" logic
             Assert.Equal(0, dbVeiling.VerkoperID);
         }
+
+        [Fact]
+        public async Task StartVeiling_Assigns_VerkoperID_From_Product()
+        {
+            // Arrange
+            using var context = GetInMemoryDbContext();
+            var mockHub = GetMockHub();
+            var mockAuctionService = GetMockAuctionService();
+            var controller = new VeilingController(context, mockHub.Object, mockAuctionService);
+
+            var inputProduct = new Product
+            {
+                ProductID = 10,
+                VerkoperID = 5,
+                Naam = "Specific Link Test"
+            };
+
+            // Act
+            var result = await controller.StartVeiling(inputProduct);
+
+            // Assert
+            var okResult = Assert.IsType<OkObjectResult>(result);
+            var resultVeiling = Assert.IsType<Veiling>(okResult.Value);
+            Assert.Equal(5, resultVeiling.VerkoperID);
+
+            var dbVeiling = await context.Veilingen.FirstOrDefaultAsync(v => v.ProductID == 10);
+            Assert.NotNull(dbVeiling);
+            Assert.Equal(5, dbVeiling.VerkoperID);
+        }
     }
 }
