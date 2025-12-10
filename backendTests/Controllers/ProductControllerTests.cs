@@ -1,6 +1,8 @@
 ﻿using backend.Controllers;
 using backend.Data;
+using backend.interfaces;
 using backend.Models;
+using backend.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -19,6 +21,12 @@ namespace backend.Controllers.Tests
                 .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString()) // Unique name per call
                 .Options;
             return new AppDbContext(options);
+        }
+
+        private ProductService GetProductService()
+        {
+            using var context = GetInMemoryDbContext();
+            return new Services.ProductService(context);
         }
 
         // -------------------------------------------------------------------
@@ -47,7 +55,8 @@ namespace backend.Controllers.Tests
         {
             // Arrange
             using var context = GetInMemoryDbContext();
-            var controller = new ProductController(context);
+            ProductService productService = GetProductService();
+            var controller = new ProductController(context, productService);
 
             var newProduct = new Product
             {
@@ -77,7 +86,8 @@ namespace backend.Controllers.Tests
         {
             // Arrange
             using var context = GetInMemoryDbContext();
-            var controller = new ProductController(context);
+            ProductService productService = GetProductService();
+            var controller = new ProductController(context, productService);
 
             // Manually trigger a validation error (Simulating missing required fields)
             controller.ModelState.AddModelError("Naam", "The Naam field is required.");
@@ -100,13 +110,14 @@ namespace backend.Controllers.Tests
         {
             // Arrange
             using var context = GetInMemoryDbContext();
+            ProductService productService = GetProductService();
 
             // Seed the database with mixed data
             context.Producten.Add(new Product { Naam = "Veilbaar", StartPrijs = 10 });
             context.Producten.Add(new Product { Naam = "Niet Veilbaar", StartPrijs = null });
             await context.SaveChangesAsync();
 
-            var controller = new ProductController(context);
+            var controller = new ProductController(context, productService);
 
             // Act
             var result = await controller.GetUnassignedProducts();
@@ -124,6 +135,7 @@ namespace backend.Controllers.Tests
         {
             // Arrange
             using var dbContext = GetInMemoryDbContext();
+            ProductService productService = GetProductService();
             var testProduct = new Product
             {
                 ProductID = 1,
@@ -134,7 +146,7 @@ namespace backend.Controllers.Tests
             dbContext.Producten.Add(testProduct);
             await dbContext.SaveChangesAsync();
 
-            var controller = new ProductController(dbContext);
+            var controller = new ProductController(dbContext, productService);
 
             // Act
             var result = await controller.UpdateProductPrice(1, 25);
@@ -151,7 +163,8 @@ namespace backend.Controllers.Tests
 
             // We maken een LEGE database (we voegen geen producten toe)
             using var dbContext = GetInMemoryDbContext();
-            var controller = new ProductController(dbContext);
+            ProductService productService = GetProductService();
+            var controller = new ProductController(dbContext, productService);
 
 
             // We proberen product met ID 99 te updaten (terwijl de database leeg is)

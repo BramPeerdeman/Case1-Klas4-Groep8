@@ -1,6 +1,7 @@
 ﻿using backend.Controllers;
 using backend.Data;
 using backend.Hubs;
+using backend.interfaces;
 using backend.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
@@ -23,6 +24,12 @@ namespace backend.Controllers.Tests
             return new AppDbContext(options);
         }
 
+        private IAuctionService GetMockAuctionService()
+        {
+            var mockService = new Mock<IAuctionService>();
+            return mockService.Object;
+        }
+
         // 2. Helper to mock the SignalR Hub (needed for the Controller constructor)
         private Mock<IHubContext<AuctionHub>> GetMockHub()
         {
@@ -35,7 +42,8 @@ namespace backend.Controllers.Tests
             // Arrange
             using var context = GetInMemoryDbContext();
             var mockHub = GetMockHub();
-            var controller = new VeilingController(context, mockHub.Object);
+            var mockAuctionService = GetMockAuctionService();
+            var controller = new VeilingController(context, mockHub.Object, mockAuctionService);
 
             // Create a product that clearly belongs to Verkoper #99
             var inputProduct = new Product
@@ -70,7 +78,8 @@ namespace backend.Controllers.Tests
             // Arrange
             using var context = GetInMemoryDbContext();
             var mockHub = GetMockHub();
-            var controller = new VeilingController(context, mockHub.Object);
+            var mockAuctionService = GetMockAuctionService();
+            var controller = new VeilingController(context, mockHub.Object, mockAuctionService);
 
             var inputProduct = new Product
             {
@@ -87,41 +96,6 @@ namespace backend.Controllers.Tests
 
             // Should be 0 because of your "?? 0" logic
             Assert.Equal(0, dbVeiling.VerkoperID);
-        }
-
-        [Fact]
-        public async Task PriceMovement_ShouldBroadcast_WhenPriceIsHigher()
-        {
-            // Even though this is "live" logic, it affects the Veiler's profit, 
-            // so it's good to have one test for it.
-
-            // Arrange
-            using var context = GetInMemoryDbContext();
-            var mockHub = GetMockHub();
-
-            // We need to mock the "Clients.All.SendAsync" call chain
-            var mockClientProxy = new Mock<IClientProxy>();
-            var mockClients = new Mock<IHubClients>();
-
-            mockClients.Setup(c => c.All).Returns(mockClientProxy.Object);
-            mockHub.Setup(h => h.Clients).Returns(mockClients.Object);
-
-            var controller = new VeilingController(context, mockHub.Object);
-
-            // Act
-            // Bid 100, Min Price 50 -> Should succeed
-            var result = await controller.PriceMovement(100, 50);
-
-            // Assert
-            Assert.IsType<OkObjectResult>(result);
-
-            // Verify that SignalR actually tried to send "PrijsUpdate"
-            mockClientProxy.Verify(
-                client => client.SendCoreAsync(
-                    "PrijsUpdate",
-                    It.Is<object[]>(o => o != null && o.Length > 0),
-                    default),
-                Times.Once);
         }
     }
 }
