@@ -4,6 +4,7 @@ using backend.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authorization;
+using backend.interfaces;
 
 namespace backend.Controllers
 {
@@ -12,10 +13,12 @@ namespace backend.Controllers
     public class ProductController : ControllerBase
     {
         private readonly AppDbContext _context;
+        private readonly IProductService _productService;
 
-        public ProductController(AppDbContext context)
+        public ProductController(AppDbContext context, IProductService productService)
         {
             _context = context;
+            _productService = productService;
         }
 
         [HttpGet("products")]
@@ -106,10 +109,7 @@ namespace backend.Controllers
         [HttpGet("product/veilbarelijst")]
         public async Task<IActionResult> GetAuctionableProducts()
         {
-            var veilbareProducten = await _context.Producten
-                .AsNoTracking()
-                .Where(p => p.StartPrijs != null)
-                .ToListAsync();
+            var veilbareProducten = await _productService.GetAuctionalbleProductsAsync();
 
             if (veilbareProducten == null || veilbareProducten.Count == 0)
                 return NotFound("geen veilbare producten gevonden");
