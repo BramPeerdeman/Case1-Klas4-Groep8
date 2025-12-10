@@ -109,7 +109,7 @@ namespace backend.Controllers
         [HttpGet("product/veilbarelijst")]
         public async Task<IActionResult> GetAuctionableProducts()
         {
-            var veilbareProducten = await _productService.GetAuctionalbleProductsAsync();
+            var veilbareProducten = await _productService.GetAuctionableProductsAsync();
 
             if (veilbareProducten == null || veilbareProducten.Count == 0)
                 return NotFound("geen veilbare producten gevonden");
