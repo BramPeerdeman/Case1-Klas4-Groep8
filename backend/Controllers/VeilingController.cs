@@ -26,7 +26,24 @@ namespace backend.Controllers
             _auctionService = auctionService;
         }
 
-        // 1. QUEUE: Toevoegen
+        // 1. START VEILING (DIT IS DE FIX: Naam is nu 'StartVeiling')
+        [HttpPost("start/{id}")]
+        [Authorize(Roles = "admin")]
+        public async Task<IActionResult> StartVeiling(int id)
+        {
+            await _auctionService.StartAuctionAsync(id);
+            return Ok(new { message = $"Veiling {id} gestart." });
+        }
+
+        [HttpGet("active")]
+        public IActionResult GetActive()
+        {
+            var active = _auctionService.GetActiveAuction();
+            if (active == null) return NotFound("Geen actieve veiling");
+            return Ok(active);
+        }
+
+        // 2. QUEUE: Toevoegen
         [HttpPost("queue/add")]
         [Authorize(Roles = "admin")]
         public IActionResult AddToQueue([FromBody] List<int> productIds)
@@ -35,7 +52,7 @@ namespace backend.Controllers
             return Ok(new { message = "Toegevoegd aan wachtrij" });
         }
 
-        // 2. QUEUE: Starten
+        // 3. QUEUE: Starten
         [HttpPost("queue/start")]
         [Authorize(Roles = "admin")]
         public async Task<IActionResult> StartQueue()
@@ -44,7 +61,7 @@ namespace backend.Controllers
             return Ok(new { message = "Queue gestart!" });
         }
 
-        // 3. BOD: Kopen
+        // 4. BOD: Kopen
         [HttpPost("koop")]
         public async Task<IActionResult> Koop([FromBody] KoopRequest request)
         {
@@ -53,7 +70,7 @@ namespace backend.Controllers
             return BadRequest(new { message = "Te laat!" });
         }
 
-        // 4. STATUS: Ophalen
+        // 5. STATUS: Ophalen
         [HttpGet("status/{id}")]
         public IActionResult GetStatus(int id)
         {
@@ -61,20 +78,12 @@ namespace backend.Controllers
             return Ok(status);
         }
 
+        // Oude methode voor backward compatibility (mag blijven of weg)
         [Authorize(Roles = "admin")]
         [HttpPost("sync-veilbaar")]
         public async Task<IActionResult> SyncVeilBareProducten()
         {
             await _auctionService.MoveNewAuctionableProductsAsync();
-            return Ok();
-        }
-
-        // Oude start methode (optioneel, voor enkel product)
-        [HttpPost("start/{id}")]
-        [Authorize(Roles = "admin")]
-        public async Task<IActionResult> StartSingle(int id)
-        {
-            await _auctionService.StartAuctionAsync(id);
             return Ok();
         }
     }

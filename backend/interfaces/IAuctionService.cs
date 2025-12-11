@@ -10,6 +10,8 @@ namespace backend.interfaces
         void AddToQueue(List<int> productIds);
         Task StartQueueAsync();
 
+        AuctionState? GetActiveAuction();
+
         Task StartAuctionAsync(int productId);
         AuctionState GetStatus(int productId);
         Task<bool> PlaatsBod(int productId, string koperNaam, decimal bedrag);

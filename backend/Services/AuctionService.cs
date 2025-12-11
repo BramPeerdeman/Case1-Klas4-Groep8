@@ -33,7 +33,13 @@ namespace backend.Services
             }
         }
 
-        // 2. QUEUE STARTEN
+        public AuctionState? GetActiveAuction()
+        {
+            // Zoek de eerste veiling die 'Running' is
+            return _activeAuctions.FirstOrDefault(a => a.IsRunning);
+        }
+
+        // QUEUE STARTEN
         public async Task StartQueueAsync()
         {
             _isQueueRunning = true;
