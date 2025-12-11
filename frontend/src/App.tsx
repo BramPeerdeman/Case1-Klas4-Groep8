@@ -1,5 +1,5 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
-import { ThemeProvider, createTheme } from "@mui/material/styles";
+import { ThemeProvider } from "@mui/material/styles";
 import { CssBaseline } from "@mui/material";
 
 import MainLayout from "./layouts/MainLayout";
@@ -16,7 +16,6 @@ import Settings from "./Pages/Settings";
 import { AuthProvider } from "./Contexts/AuthContext";
 import { useUser } from "./Contexts/UserContext";
 import { UserProvider } from "./Contexts/UserContext";
-import { baseTheme } from "./theme"; // your static theme
 import { buildTheme } from "./dynamicTheme";
 import VerkoperPage from "./Pages/VerkoperPage";
 
