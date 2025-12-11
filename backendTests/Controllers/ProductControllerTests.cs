@@ -9,6 +9,7 @@ using Microsoft.EntityFrameworkCore;
 using System.Reflection;
 using Xunit;
 
+
 namespace backend.Controllers.Tests
 {
     public class ProductControllerTests
@@ -173,6 +174,82 @@ namespace backend.Controllers.Tests
 
             // We verwachten dat de controller zegt: "NotFound" (404)
             Assert.IsType<NotFoundResult>(result);
+        }
+        [Fact]
+        public async Task UpdateProductPrice_MetNegatievePrijs_GeeftBadRequest()
+        {
+            using var dbContext = GetInMemoryDbContext();
+            ProductService productService = GetProductService();
+            var options = new DbContextOptionsBuilder<AppDbContext>()
+                .UseInMemoryDatabase(databaseName: "TestDb_Negatief")
+                .Options;
+
+            // 2. Vul de database met één testproduct
+            using (var context = new AppDbContext(options))
+            {
+                context.Producten.Add(new Product 
+                { 
+                    ProductID = 1,  
+                    Naam = "Test Vaas", 
+                    StartPrijs = 50 
+                });
+                await context.SaveChangesAsync();
+            }
+
+            
+            using (var context = new AppDbContext(options))
+            {
+                var controller = new ProductController(context, productService);
+
+                // De veilingmeester probeert -10 euro in te voeren (FOUT)
+                var result = await controller.UpdateProductPrice(1, -10);
+
+                
+                Assert.IsType<BadRequestObjectResult>(result);
+
+                
+                var productInDb = await context.Producten.FindAsync(1);
+                Assert.Equal(50, productInDb.StartPrijs); 
+            }
+        }
+
+        [Fact]
+        public async Task UpdateProductPrice_MetGeldigePrijs_PastPrijsAan()
+        {
+            // --- ARRANGE ---
+            var options = new DbContextOptionsBuilder<AppDbContext>()
+                .UseInMemoryDatabase(databaseName: "TestDb_Positief") 
+                .Options;
+
+            using (var context = new AppDbContext(options))
+            {
+                context.Producten.Add(new Product 
+                { 
+                    ProductID = 1, 
+                    Naam = "Test Vaas", 
+                    StartPrijs = 50 
+                });
+                await context.SaveChangesAsync();
+            }
+
+            // --- ACT ---
+            using (var context = new AppDbContext(options))
+            {
+                
+                var controller = new ProductController(context, new ProductService(context));
+
+                // De veilingmeester verandert de prijs naar 75 euro (GOED)
+                var result = await controller.UpdateProductPrice(1, 75);
+
+                // --- ASSERT ---
+                
+                // Check: Krijgen we een Ok (200) terug?
+                Assert.IsType<OkObjectResult>(result);
+
+                // Check: Is de prijs echt veranderd in de database?
+                var productInDb = await context.Producten.FindAsync(1);
+                Assert.Equal(75, productInDb.StartPrijs);
+            }
         }
     }
 }
