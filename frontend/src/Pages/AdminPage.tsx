@@ -1,162 +1,123 @@
 import { useState, useEffect } from "react";
 import { 
-  Container, Box, TextField, Button, Typography, Card, CardContent, 
-  Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper 
+  Container, Box, Button, Typography, Table, TableBody, TableCell, 
+  TableContainer, TableHead, TableRow, Paper, Checkbox, Snackbar, Alert 
 } from "@mui/material";
-
-// Interface voor de producten in de tabel
-interface Product {
-  productID: number;
-  naam: string;
-  beschrijving: string;
-  startPrijs: number;
-  imageUrl?: string;
-}
+import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+// We importeren het type 'Product' dat { id, name, price } gebruikt
+import { fetchProducts, type Product } from "../Data/Products";
 
 export default function AdminPage() {
-  
-  // --- STATE VOOR PRIJS AANPASSEN ---
-  const [updateId, setUpdateId] = useState<string>("");
-  const [newPrice, setNewPrice] = useState<string>("");
-  const [priceError, setPriceError] = useState<string>("");
-  const [priceSuccess, setPriceSuccess] = useState<string>("");
-
-  
+  const { products: fetchedProducts } = fetchProducts();
   const [products, setProducts] = useState<Product[]>([]);
-
   
-  useEffect(() => {
-    const fetchProducts = async () => {
-      try {
-        const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5299';
-        const response = await fetch(`${baseUrl}/api/Product/products`);
-        if (response.ok) {
-          const data = await response.json();
-          setProducts(data);
-        }
-      } catch (error) {
-        console.error("Kon producten niet laden:", error);
-      }
-    };
+  // Selectie state (deze miste waarschijnlijk in je vorige versie)
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [msg, setMsg] = useState("");
 
-    fetchProducts();
-  }, [priceSuccess]); // Herlaad de lijst als er een prijs is aangepast!
+  useEffect(() => { setProducts(fetchedProducts); }, [fetchedProducts]);
 
-  // --- PRIJS AANPASSEN ---
-  const handleUpdatePrice = async (event: React.FormEvent) => {
-    event.preventDefault();
-    setPriceError("");
-    setPriceSuccess("");
-
-    const token = localStorage.getItem("token");
-    if (!token) {
-      setPriceError("U bent niet ingelogd.");
-      return;
+  // Checkbox Logica: Alles selecteren
+  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.checked) {
+        setSelectedIds(products.map(p => p.id));
+    } else {
+        setSelectedIds([]);
     }
+  };
 
+  // Checkbox Logica: Eén selecteren
+  const handleSelectOne = (id: number) => {
+    // Hier zat de typfout ('includ' -> 'includes')
+    if (selectedIds.includes(id)) {
+        setSelectedIds(selectedIds.filter(i => i !== id));
+    } else {
+        setSelectedIds([...selectedIds, id]);
+    }
+  };
+
+  // Start Queue Actie
+  const handleStartQueue = async () => {
     try {
-      const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5299';
-      
-      const response = await fetch(`${baseUrl}/api/Product/product/${updateId}/veranderprijs`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}` 
-        },
-        body: JSON.stringify(Number(newPrice)), 
-      });
+        const token = localStorage.getItem("token");
+        const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5299';
 
-      if (response.ok) {
-        setPriceSuccess(`Prijs voor Product ID ${updateId} succesvol aangepast!`);
-        setUpdateId("");
-        setNewPrice("");
-      } else {
-        const errorText = await response.text();
-        if (response.status === 404) {
-            setPriceError(`Product met ID ${updateId} niet gevonden.`);
-        } else {
-            setPriceError("Aanpassen mislukt. Heeft u de juiste rechten?");
-            console.error("Backend error:", errorText);
-        }
-      }
-    } catch (err) {
-      setPriceError("Kan geen verbinding maken met de server.");
-      console.error(err);
+        // 1. Stuur selectie naar backend
+        await fetch(`${baseUrl}/api/Veiling/queue/add`, {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json', 
+                'Authorization': `Bearer ${token}` 
+            },
+            body: JSON.stringify(selectedIds)
+        });
+
+        // 2. Druk op "Play"
+        await fetch(`${baseUrl}/api/Veiling/queue/start`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        setMsg("Queue gestart! Ga naar het Klok scherm.");
+        setSelectedIds([]);
+    } catch (e) { 
+        console.error(e);
+        setMsg("Er ging iets mis bij het starten.");
     }
   };
 
   return (
-    <Container maxWidth="md" sx={{ mt: 4 }}>
-      <Typography variant="h4" gutterBottom>Veilingmeester Dashboard</Typography>
-      
-      {/* --- DEEL 1: HET FORMULIER --- */}
-      <Card sx={{ mb: 6 }}>
-        <CardContent>
-          <Typography variant="h5" gutterBottom>Startprijs Aanpassen</Typography>
-          
-          <Box component="form" onSubmit={handleUpdatePrice} sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-            <TextField 
-              label="Product ID" 
-              name="updateId"
-              variant="outlined" 
-              value={updateId} 
-              onChange={e => setUpdateId(e.target.value)} 
-              required fullWidth 
-              helperText="Kijk in de tabel hieronder voor het ID."
-            />
-            <TextField 
-              label="Nieuwe Startprijs (€)" 
-              name="newPrice"
-              type="number" 
-              variant="outlined" 
-              value={newPrice} 
-              onChange={e => setNewPrice(e.target.value)} 
-              required fullWidth 
-            />
+    <Container maxWidth="lg" sx={{ mt: 4 }}>
+      <Box display="flex" justifyContent="space-between" mb={3}>
+        <Typography variant="h4">Veilingmeester Dashboard</Typography>
+        <Button 
+            variant="contained" color="success" size="large" startIcon={<PlayArrowIcon />}
+            disabled={selectedIds.length === 0} onClick={handleStartQueue}
+        >
+            Start Queue ({selectedIds.length})
+        </Button>
+      </Box>
 
-            {priceError && <Typography color="error" align="center">{priceError}</Typography>}
-            {priceSuccess && <Typography color="primary" align="center">{priceSuccess}</Typography>}
-
-            <Button type="submit" variant="contained" color="secondary" sx={{ mt: 2 }}>
-              Prijs Aanpassen
-            </Button>
-          </Box>
-        </CardContent>
-      </Card>
-
-      {/* --- DEEL 2: DE TABEL --- */}
-      <Typography variant="h5" gutterBottom>Alle Producten</Typography>
       <TableContainer component={Paper}>
-        <Table aria-label="product tabel">
+        <Table>
           <TableHead>
-            <TableRow sx={{ backgroundColor: '#f5f5f5' }}>
-              <TableCell><strong>ID</strong></TableCell>
-              <TableCell><strong>Afbeelding</strong></TableCell>
-              <TableCell><strong>Naam</strong></TableCell>
-              <TableCell><strong>Startprijs</strong></TableCell>
+            <TableRow sx={{ bgcolor: '#eee' }}>
+              <TableCell padding="checkbox">
+                <Checkbox 
+                  onChange={handleSelectAll} 
+                  checked={products.length > 0 && selectedIds.length === products.length} 
+                />
+              </TableCell>
+              <TableCell>Foto</TableCell>
+              <TableCell>Product</TableCell>
+              <TableCell>Startprijs</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {products.map((product) => (
-              <TableRow key={product.productID}>
-                <TableCell>{product.productID}</TableCell>
-                <TableCell>
-                  {product.imageUrl && (
-                    <img 
-                      src={product.imageUrl} 
-                      alt={product.naam} 
-                      style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '4px' }} 
+            {products.map((p) => (
+              <TableRow key={p.id} hover selected={selectedIds.includes(p.id)}>
+                <TableCell padding="checkbox">
+                    <Checkbox 
+                      checked={selectedIds.includes(p.id)} 
+                      onChange={() => handleSelectOne(p.id)} 
                     />
-                  )}
                 </TableCell>
-                <TableCell>{product.naam}</TableCell>
-                <TableCell>€ {product.startPrijs}</TableCell>
+                <TableCell>
+                    {p.imageUrl && (
+                        <img src={p.imageUrl} width={50} style={{borderRadius: 4}} alt={p.name}/>
+                    )}
+                </TableCell>
+                <TableCell>{p.name}</TableCell>
+                <TableCell>€ {p.price}</TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
       </TableContainer>
-
+      
+      <Snackbar open={!!msg} autoHideDuration={4000} onClose={() => setMsg("")}>
+        <Alert severity="success">{msg}</Alert>
+      </Snackbar>
     </Container>
   );
-};
+}

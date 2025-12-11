@@ -1,124 +1,110 @@
-import { useParams } from "react-router-dom";
-import { Box, Container, Typography, LinearProgress, Button } from "@mui/material";
-import { useEffect, useState } from "react";
-import { fetchProducts } from "../Data/Products";
+import { useParams, useNavigate } from "react-router-dom"; // useNavigate toegevoegd
+import { Box, Container, Typography, Button, Grid } from "@mui/material";
+import { useEffect, useState, useRef } from "react";
+import * as signalR from "@microsoft/signalr";
 
 export default function Klok() {
   const { id } = useParams<{ id: string }>();
-  const { products, loading } = fetchProducts();
-
-  const product = !loading
-    ? products.find(p => p.id.toString() === id)
-    : undefined;
-
-  // Auction settings (dynamic fallback values)
-  const dropDuration = 30000;  // 30 seconds
-  const dropInterval = 300;    // update every 300ms
-
-  // Auction state
+  const navigate = useNavigate(); // Om te switchen van pagina
+  
+  const [product, setProduct] = useState<any>(null);
   const [currentPrice, setCurrentPrice] = useState<number | null>(null);
-  const [isRunning, setIsRunning] = useState(false);
+  const [status, setStatus] = useState<"WAITING" | "RUNNING" | "SOLD" | "TIMEOUT">("WAITING");
+  const [buyerName, setBuyerName] = useState<string>("");
 
-  // Initialize auction ONLY when product becomes available
+  const timerRef = useRef<number | null>(null);
+  const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5299';
+
+  // 1. SIGNALR GLOBAL LISTENER (Luister naar Queue updates)
   useEffect(() => {
-    if (!product) return;
+    const connection = new signalR.HubConnectionBuilder()
+        .withUrl(`${baseUrl}/AuctionHub`)
+        .withAutomaticReconnect()
+        .build();
 
-    const max = product.price;
-    //const min = product.price * 0.3;
+    connection.start().then(() => console.log("SignalR Connected"));
 
-    setCurrentPrice(max);  // set initial price after product loads
-    setIsRunning(true);    // start auction
-  }, [product]);
+    // Als server zegt: "Nieuwe veiling gestart voor ID X"
+    connection.on("ReceiveNewAuction", (data: any) => {
+        // Navigeer automatisch naar de nieuwe klok pagina!
+        navigate(`/klok/${data.productId}`);
+        // Reset state voor het nieuwe product
+        setStatus("RUNNING");
+        setCurrentPrice(data.startPrijs);
+        startClockAnimation(data.startTime, data.startPrijs);
+    });
 
-  // Countdown effect
-  useEffect(() => {
-    if (!product || currentPrice === null || !isRunning) return;
-
-    const max = product.price;
-    const min = product.price * 0.3;
-
-    const totalSteps = Math.floor(dropDuration / dropInterval);
-    const priceStep = (max - min) / totalSteps;
-
-    const interval = setInterval(() => {
-      setCurrentPrice(prev => {
-        if (prev === null) return null;
-
-        const next = prev - priceStep;
-
-        if (next <= min) {
-          clearInterval(interval);
-          setIsRunning(false);
-          return min;
+    // Als server zegt: "Product X is verkocht"
+    connection.on("ReceiveAuctionResult", (data: any) => {
+        if (data.productId.toString() === id) { // Check of het over ONS product gaat
+            stopClock();
+            setStatus("SOLD");
+            setBuyerName(data.buyer);
+            setCurrentPrice(data.price);
         }
+    });
 
-        return next;
+    return () => { connection.stop(); stopClock(); };
+  }, [id, navigate]);
+
+  // 2. PRODUCT DATA OPHALEN
+  useEffect(() => {
+      const loadProduct = async () => {
+          try {
+              const res = await fetch(`${baseUrl}/api/Product/products`);
+              const data = await res.json();
+              const found = data.find((p:any) => p.productID.toString() === id);
+              if(found) {
+                  setProduct(found);
+                  // Check of hij stiekem al loopt (page refresh)
+                  const statRes = await fetch(`${baseUrl}/api/Veiling/status/${id}`);
+                  const state = await statRes.json();
+                  if(state.isRunning) startClockAnimation(state.startTime, found.startPrijs);
+                  if(state.isSold) { setStatus("SOLD"); setCurrentPrice(state.finalPrice); setBuyerName(state.buyerName); }
+              }
+          } catch(e) {}
+      };
+      if(id) loadProduct();
+  }, [id]);
+
+  // Hulpfuncties voor klok animatie
+  const startClockAnimation = (startTimeStr: string, startPrice: number) => {
+      if(timerRef.current) clearInterval(timerRef.current);
+      const startTime = new Date(startTimeStr).getTime();
+      const dropDuration = 30000;
+      const minPrice = startPrice * 0.3;
+
+      timerRef.current = window.setInterval(() => {
+          const elapsed = Date.now() - startTime;
+          if(elapsed >= dropDuration) {
+              setCurrentPrice(minPrice); setStatus("TIMEOUT"); stopClock();
+          } else {
+              const progress = elapsed / dropDuration;
+              setCurrentPrice(startPrice - (progress * (startPrice - minPrice)));
+          }
+      }, 50);
+  };
+  const stopClock = () => { if(timerRef.current) clearInterval(timerRef.current); };
+
+  const handleBuy = async () => {
+      if(status !== "RUNNING") return;
+      stopClock();
+      const token = localStorage.getItem("token");
+      await fetch(`${baseUrl}/api/Veiling/koop`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ productId: Number(id), buyerName: "Ik", price: currentPrice })
       });
-    }, dropInterval);
+  };
 
-    return () => clearInterval(interval);
-  }, [product, currentPrice, isRunning]);
-
-  // UI handling
-  if (loading) return <div>Loading...</div>;
-  if (!product) return <div>Product not found</div>;
-  if (currentPrice === null) return <div>Starting auction...</div>;
-
-  const max = product.price;
-  const min = product.price * 0.3;
-  const progress = ((currentPrice - min) / (max - min)) * 100;
+  if(!product) return <Typography>Wachten op veiling...</Typography>;
 
   return (
-    <Container sx={{ py: 4 }}>
-      <Box display="flex" gap={6} flexWrap="wrap" alignItems="center" justifyContent="center">
-
-        {/* Product Info */}
-        <Box flex={1} minWidth={300}>
-          <img
-            src={product.imageUrl}
-            alt={product.name}
-            style={{ maxWidth: "100%", borderRadius: 8 }}
-          />
-          <Typography variant="h4" gutterBottom>{product.name}</Typography>
-          <Typography variant="body1">
-            {`Dit is een ${product.name}. Perfect voor uw tuin!`}
-          </Typography>
-        </Box>
-
-        {/* Auction Clock */}
-        <Box flex={1} minWidth={300}>
-          <Typography variant="h5" gutterBottom>
-            Huidige prijs: €{currentPrice.toFixed(2)}
-          </Typography>
-
-          <LinearProgress
-            variant="determinate"
-            value={progress}
-            sx={{
-              height: 25,
-              borderRadius: 2,
-              mb: 3,
-              "& .MuiLinearProgress-bar": {
-                transition: `width ${dropInterval}ms linear`,
-              },
-            }}
-          />
-
-          <Box display="flex" justifyContent="space-between" mb={2}>
-            <Typography variant="body2">Max: €{max.toFixed(2)}</Typography>
-            <Typography variant="body2">Min: €{min.toFixed(2)}</Typography>
-          </Box>
-
-          <Button
-            variant="contained"
-            onClick={() => setIsRunning(false)}
-            disabled={!isRunning}
-            fullWidth
-          >
-            Bied
-          </Button>
-        </Box>
-      </Box>
+    <Container sx={{py:4, textAlign: 'center'}}>
+        <Typography variant="h3">{product.naam}</Typography>
+        {status === "RUNNING" && <Typography variant="h1">€ {currentPrice?.toFixed(2)}</Typography>}
+        {status === "SOLD" && <Typography variant="h2" color="success.main">VERKOCHT aan {buyerName}!</Typography>}
+        <Button variant="contained" color="error" size="large" onClick={handleBuy} disabled={status !== "RUNNING"} sx={{mt:4, fontSize: '2rem'}}>MIJN!</Button>
     </Container>
   );
 }
