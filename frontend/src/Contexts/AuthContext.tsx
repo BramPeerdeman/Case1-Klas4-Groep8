@@ -14,6 +14,7 @@ interface AuthContextType {
   isLoggedIn: boolean;
   isAdmin: boolean;
   isVeiler: boolean;
+  isLoading: boolean;
   user: DecodedToken | null;
   login: (token: string) => void;
   logout: () => void;
@@ -25,6 +26,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isVeiler, setIsVeiler] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [user, setUser] = useState<DecodedToken | null>(null);
   const { setUiSettings } = useUser();
 
@@ -34,12 +36,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setIsLoggedIn(true);
       decodeAndSetUser(token);
       fetchUiSettings(token);
-    } else {
-      setIsLoggedIn(false);
-      setIsAdmin(false);
-      setIsVeiler(false);
-      setUser(null);
     }
+    setIsLoading(false);
   }, []);
 
   const decodeAndSetUser = (token: string) => {
@@ -88,7 +86,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   return (
-    <AuthContext.Provider value={{ isLoggedIn, isAdmin, isVeiler, user, login, logout }}>
+    <AuthContext.Provider value={{ isLoggedIn, isAdmin, isVeiler, isLoading, user, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

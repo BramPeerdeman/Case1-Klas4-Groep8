@@ -138,8 +138,14 @@ export default function AdminPage() {
             headers: { 'Authorization': `Bearer ${token}` }
         });
 
-        notify("Queue gestart! U wordt doorgestuurd...", "success");
-        setTimeout(() => navigate('/veiling-live'), 1500);
+        // 1. Notify Success
+        notify("Queue gestart! U wordt doorgestuurd...", "success", "top-center");
+        setSelectedIds([]);
+        
+        // 2. Automatically navigate to the Live Screen after 1.5 seconds
+        setTimeout(() => {
+            navigate('/VeilingmeesterLive'); 
+        }, 1500);
 
     } catch (e) { 
         console.error(e);
@@ -152,9 +158,16 @@ export default function AdminPage() {
     <Container maxWidth="lg" sx={{ mt: 4, mb: 10 }}>
       <Box display="flex" justifyContent="space-between" mb={3} alignItems="center">
         <Typography variant="h4">Veilingmeester Dashboard</Typography>
-        <Box gap={2} display="flex">
-            <Button variant="outlined" startIcon={<MonitorHeartIcon />} onClick={() => navigate('/veiling-live')}>
-                Live Scherm
+        
+        <Box display="flex" gap={2}>
+            {/* Manual Navigation Button (in case they leave the page and want to go back) */}
+            <Button 
+                variant="outlined" 
+                color="info" 
+                startIcon={<MonitorHeartIcon />}
+                onClick={() => navigate('/VeilingmeesterLive')}
+            >
+                Ga naar Live Scherm
             </Button>
             <Button startIcon={<RefreshIcon />} onClick={fetchAllData}>Verversen</Button>
         </Box>
