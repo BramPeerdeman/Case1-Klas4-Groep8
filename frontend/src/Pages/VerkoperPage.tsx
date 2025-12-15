@@ -6,7 +6,7 @@ import { useNotification } from "../Contexts/NotificationContext";
 interface NewProductForm {
   naam: string;
   beschrijving: string;
-  startPrijs: string; // String om leeg te kunnen beginnen
+  minPrijs: string; // String om leeg te kunnen beginnen
   imageUrl: string;
   locatie?: string;
   beginDatum?: string;
@@ -18,7 +18,7 @@ export default function VerkoperPage() {
   const [formData, setFormData] = useState<NewProductForm>({
     naam: "",
     beschrijving: "",
-    startPrijs: "",
+    minPrijs: "",
     imageUrl: "",
     locatie: "",
     beginDatum: ""
@@ -56,7 +56,7 @@ export default function VerkoperPage() {
         body: JSON.stringify({
           naam: formData.naam,
           beschrijving: formData.beschrijving,
-          startPrijs: Number(formData.startPrijs),
+          minPrijs: Number(formData.minPrijs),
           imageUrl: formData.imageUrl,
           locatie: formData.locatie,
           beginDatum: formData.beginDatum
@@ -65,7 +65,7 @@ export default function VerkoperPage() {
 
       if (response.ok) {
         notify("Product succesvol toegevoegd!", "success");
-        setFormData({ naam: "", beschrijving: "", startPrijs: "", imageUrl: "" });
+        setFormData({ naam: "", beschrijving: "", minPrijs: "", imageUrl: "" });
       } else {
         notify("Toevoegen mislukt. Bent u wel een Veiler?", "error");
         console.error("Backend error:", await response.text());
@@ -137,11 +137,11 @@ export default function VerkoperPage() {
               placeholder="https://voorbeeld.nl/bloem.jpg"
             />
             <TextField 
-              label="Startprijs (€)" 
-              name="startPrijs"
+              label="Minprijs (€)" 
+              name="minPrijs"
               type="number" 
               variant="outlined" 
-              value={formData.startPrijs} 
+              value={formData.minPrijs} 
               onChange={handleChange} 
               required fullWidth 
             />
