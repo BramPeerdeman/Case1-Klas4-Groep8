@@ -241,10 +241,14 @@ namespace backend.Migrations
                     ProductID = table.Column<int>(type: "int", nullable: false)
                         .Annotation("SqlServer:Identity", "1, 1"),
                     Naam = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    BeginDatum = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    EindDatum = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    Locatie = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     Beschrijving = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    StartPrijs = table.Column<float>(type: "real", nullable: true),
-                    MinPrijs = table.Column<float>(type: "real", nullable: true),
+                    StartPrijs = table.Column<decimal>(type: "decimal(18,2)", nullable: true),
+                    MinPrijs = table.Column<decimal>(type: "decimal(18,2)", nullable: true),
                     ImageUrl = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    IsAuctionable = table.Column<bool>(type: "bit", nullable: false),
                     Eindprijs = table.Column<float>(type: "real", nullable: true),
                     VerkoperID = table.Column<int>(type: "int", nullable: true),
                     VeilerId = table.Column<string>(type: "nvarchar(450)", nullable: true)

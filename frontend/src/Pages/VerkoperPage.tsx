@@ -8,6 +8,8 @@ interface NewProductForm {
   beschrijving: string;
   startPrijs: string; // String om leeg te kunnen beginnen
   imageUrl: string;
+  locatie?: string;
+  beginDatum?: string;
 }
 
 export default function VerkoperPage() {
@@ -17,7 +19,9 @@ export default function VerkoperPage() {
     naam: "",
     beschrijving: "",
     startPrijs: "",
-    imageUrl: ""
+    imageUrl: "",
+    locatie: "",
+    beginDatum: ""
   });
   const { notify } = useNotification();
 
@@ -54,6 +58,8 @@ export default function VerkoperPage() {
           beschrijving: formData.beschrijving,
           startPrijs: Number(formData.startPrijs),
           imageUrl: formData.imageUrl,
+          locatie: formData.locatie,
+          beginDatum: formData.beginDatum
         }),
       });
 
@@ -96,6 +102,31 @@ export default function VerkoperPage() {
               multiline rows={3} 
               required fullWidth 
             />
+            <TextField 
+              label="Locatie" 
+              name="locatie"
+              variant="outlined" 
+              value={formData.locatie} 
+              onChange={handleChange} 
+              fullWidth 
+              placeholder="Bijv. Amsterdam"
+            />
+
+            <TextField
+              label="Startdatum Veiling"
+              type="datetime-local"
+              name="beginDatum"
+              value={formData.beginDatum}
+              onChange={handleChange}
+              fullWidth
+              slotProps={{
+                inputLabel: {
+                  shrink: true,
+                },
+              }}
+            />
+
+            
             <TextField 
               label="Afbeelding URL" 
               name="imageUrl"

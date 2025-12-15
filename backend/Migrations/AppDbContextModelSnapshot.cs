@@ -242,9 +242,15 @@ namespace backend.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ProductID"));
 
+                    b.Property<DateTime?>("BeginDatum")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("Beschrijving")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("EindDatum")
+                        .HasColumnType("datetime2");
 
                     b.Property<float?>("Eindprijs")
                         .HasColumnType("real");
@@ -254,6 +260,9 @@ namespace backend.Migrations
 
                     b.Property<bool>("IsAuctionable")
                         .HasColumnType("bit");
+
+                    b.Property<string>("Locatie")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<decimal?>("MinPrijs")
                         .HasColumnType("decimal(18,2)");
