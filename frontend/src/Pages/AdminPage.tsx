@@ -1,24 +1,25 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, type ChangeEvent } from "react";
 import { 
   Container, Box, Button, Typography, Table, TableBody, TableCell, 
-  TableContainer, TableHead, TableRow, Paper, Checkbox, Snackbar, Alert 
+  TableContainer, TableHead, TableRow, Paper, Checkbox 
 } from "@mui/material";
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
-// We importeren het type 'Product' dat { id, name, price } gebruikt
+import MonitorHeartIcon from '@mui/icons-material/MonitorHeart'; // Icon for Live View
 import { fetchProducts, type Product } from "../Data/Products";
+import { useNotification } from "../Contexts/NotificationContext";
+import { useNavigate } from "react-router-dom"; // Import Navigation
 
 export default function AdminPage() {
   const { products: fetchedProducts } = fetchProducts();
   const [products, setProducts] = useState<Product[]>([]);
-  
-  // Selectie state (deze miste waarschijnlijk in je vorige versie)
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
-  const [msg, setMsg] = useState("");
+  
+  const { notify } = useNotification();
+  const navigate = useNavigate(); // Hook for navigation
 
   useEffect(() => { setProducts(fetchedProducts); }, [fetchedProducts]);
 
-  // Checkbox Logica: Alles selecteren
-  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSelectAll = (e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.checked) {
         setSelectedIds(products.map(p => p.id));
     } else {
@@ -26,9 +27,7 @@ export default function AdminPage() {
     }
   };
 
-  // Checkbox Logica: Eén selecteren
   const handleSelectOne = (id: number) => {
-    // Hier zat de typfout ('includ' -> 'includes')
     if (selectedIds.includes(id)) {
         setSelectedIds(selectedIds.filter(i => i !== id));
     } else {
@@ -36,13 +35,11 @@ export default function AdminPage() {
     }
   };
 
-  // Start Queue Actie
   const handleStartQueue = async () => {
     try {
         const token = localStorage.getItem("token");
         const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5299';
 
-        // 1. Stuur selectie naar backend
         await fetch(`${baseUrl}/api/Veiling/queue/add`, {
             method: 'POST',
             headers: { 
@@ -52,17 +49,23 @@ export default function AdminPage() {
             body: JSON.stringify(selectedIds)
         });
 
-        // 2. Druk op "Play"
         await fetch(`${baseUrl}/api/Veiling/queue/start`, {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${token}` }
         });
 
-        setMsg("Queue gestart! Ga naar het Klok scherm.");
+        // 1. Notify Success
+        notify("Queue gestart! U wordt doorgestuurd...", "success", "top-center");
         setSelectedIds([]);
+        
+        // 2. Automatically navigate to the Live Screen after 1.5 seconds
+        setTimeout(() => {
+            navigate('/veiling-live'); 
+        }, 1500);
+
     } catch (e) { 
         console.error(e);
-        setMsg("Er ging iets mis bij het starten.");
+        notify("Er ging iets mis bij het starten.", "error");
     }
   };
 
@@ -70,15 +73,33 @@ export default function AdminPage() {
     <Container maxWidth="lg" sx={{ mt: 4 }}>
       <Box display="flex" justifyContent="space-between" mb={3}>
         <Typography variant="h4">Veilingmeester Dashboard</Typography>
-        <Button 
-            variant="contained" color="success" size="large" startIcon={<PlayArrowIcon />}
-            disabled={selectedIds.length === 0} onClick={handleStartQueue}
-        >
-            Start Queue ({selectedIds.length})
-        </Button>
+        
+        <Box display="flex" gap={2}>
+            {/* Manual Navigation Button (in case they leave the page and want to go back) */}
+            <Button 
+                variant="outlined" 
+                color="info" 
+                startIcon={<MonitorHeartIcon />}
+                onClick={() => navigate('/veiling-live')}
+            >
+                Ga naar Live Scherm
+            </Button>
+
+            <Button 
+                variant="contained" 
+                color="success" 
+                size="large" 
+                startIcon={<PlayArrowIcon />}
+                disabled={selectedIds.length === 0} 
+                onClick={handleStartQueue}
+            >
+                Start Queue ({selectedIds.length})
+            </Button>
+        </Box>
       </Box>
 
-      <TableContainer component={Paper}>
+      {/* ... Table Code remains exactly the same ... */}
+       <TableContainer component={Paper}>
         <Table>
           <TableHead>
             <TableRow sx={{ bgcolor: '#eee' }}>
@@ -114,10 +135,6 @@ export default function AdminPage() {
           </TableBody>
         </Table>
       </TableContainer>
-      
-      <Snackbar open={!!msg} autoHideDuration={4000} onClose={() => setMsg("")}>
-        <Alert severity="success">{msg}</Alert>
-      </Snackbar>
     </Container>
   );
 }

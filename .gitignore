@@ -12,6 +12,7 @@ backendTests/obj/
 backend/*.user
 backend/*.suo
 backend/*.userosscache
+backend/.env
 
 # =====================
 # React frontend

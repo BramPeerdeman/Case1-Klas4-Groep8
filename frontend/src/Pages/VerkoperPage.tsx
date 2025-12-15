@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Container, Box, TextField, Button, Typography, Card, CardContent } from "@mui/material";
+import { useNotification } from "../Contexts/NotificationContext";
 
 // Interface voor het formulier
 interface NewProductForm {
@@ -18,8 +19,7 @@ export default function VerkoperPage() {
     startPrijs: "",
     imageUrl: ""
   });
-  const [error, setError] = useState<string>("");
-  const [success, setSuccess] = useState<string>("");
+  const { notify } = useNotification();
 
   // Helper
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -32,12 +32,10 @@ export default function VerkoperPage() {
   // Submit functie
   const handleAddProduct = async (event: React.FormEvent) => {
     event.preventDefault();
-    setError("");
-    setSuccess("");
 
     const token = localStorage.getItem("token");
     if (!token) {
-      setError("U bent niet ingelogd.");
+      notify("U bent niet ingelogd.", "error");
       return;
     }
 
@@ -60,14 +58,14 @@ export default function VerkoperPage() {
       });
 
       if (response.ok) {
-        setSuccess("Product succesvol toegevoegd!");
+        notify("Product succesvol toegevoegd!", "success");
         setFormData({ naam: "", beschrijving: "", startPrijs: "", imageUrl: "" });
       } else {
-        setError("Toevoegen mislukt. Bent u wel een Veiler?");
+        notify("Toevoegen mislukt. Bent u wel een Veiler?", "error");
         console.error("Backend error:", await response.text());
       }
     } catch (err) {
-      setError("Kan geen verbinding maken met de server.");
+      notify("Kan geen verbinding maken met de server.", "error");
       console.error(err);
     }
   };
@@ -117,8 +115,7 @@ export default function VerkoperPage() {
               required fullWidth 
             />
 
-            {error && <Typography color="error" align="center">{error}</Typography>}
-            {success && <Typography color="primary" align="center">{success}</Typography>}
+
 
             <Button type="submit" variant="contained" color="primary" sx={{ mt: 2 }}>
               Product Toevoegen
