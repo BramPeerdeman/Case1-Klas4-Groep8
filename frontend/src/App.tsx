@@ -38,8 +38,8 @@ function ThemedRoutes() {
           <Route path="/contact" element={<Contact />} />
           <Route path="/klok/:id" element={<Klok />} />
           <Route path="/Veilingmeester" element={<AdminPage />} />
-          <Route path="/VeilingmeesterLive" element={<ProtectedRoute><VeilingMeesterLive /></ProtectedRoute>} />
-          <Route path="/verkoper" element={<VerkoperPage />} />
+          <Route path="/VeilingmeesterLive" element={<ProtectedRoute requiredRole="admin"><VeilingMeesterLive /></ProtectedRoute>} />
+          <Route path="/verkoper" element={<ProtectedRoute requiredRole="veiler"><VerkoperPage /></ProtectedRoute>} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/product/:id" element={<Detail />} />
         </Route>
