@@ -12,7 +12,7 @@ using backend.Data;
 namespace backend.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20251126180849_InitialCreate")]
+    [Migration("20251215094232_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -245,9 +245,15 @@ namespace backend.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ProductID"));
 
+                    b.Property<DateTime?>("BeginDatum")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("Beschrijving")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("EindDatum")
+                        .HasColumnType("datetime2");
 
                     b.Property<float?>("Eindprijs")
                         .HasColumnType("real");
@@ -255,15 +261,21 @@ namespace backend.Migrations
                     b.Property<string>("ImageUrl")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<float?>("MinPrijs")
-                        .HasColumnType("real");
+                    b.Property<bool>("IsAuctionable")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Locatie")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<decimal?>("MinPrijs")
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<string>("Naam")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<float?>("StartPrijs")
-                        .HasColumnType("real");
+                    b.Property<decimal?>("StartPrijs")
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<string>("VeilerId")
                         .HasColumnType("nvarchar(450)");
