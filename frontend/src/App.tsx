@@ -18,6 +18,7 @@ import { useUser } from "./Contexts/UserContext";
 import { UserProvider } from "./Contexts/UserContext";
 import { buildTheme } from "./dynamicTheme";
 import VerkoperPage from "./Pages/VerkoperPage";
+import Detail from "./Pages/Detail";
 
 // Build theme dynamically from UiSettings
 function ThemedRoutes() {
@@ -37,6 +38,7 @@ function ThemedRoutes() {
           <Route path="/Veilingmeester" element={<AdminPage />} />
           <Route path="/verkoper" element={<VerkoperPage />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/product/:id" element={<Detail />} />
         </Route>
 
         <Route element={<AuthLayout />}>

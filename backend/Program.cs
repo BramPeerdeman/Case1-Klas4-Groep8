@@ -17,6 +17,8 @@ Env.Load();
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Services.AddHostedService<PriceTickerService>();
+
 // --- Database (SQL Server) ---
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
@@ -55,8 +57,7 @@ builder.Services.AddCors(options =>
     });
 });
 
-builder.Services.AddHostedService<PriceTickerService>();
-builder.Services.AddScoped<IAuctionService, AuctionService>();
+builder.Services.AddSingleton<IAuctionService, AuctionService>();
 builder.Services.AddScoped<IProductService, ProductService>();
 
 // --- Controllers + Routing ---
@@ -151,4 +152,5 @@ app.UseAuthorization();
 app.MapHub<AuctionHub>("/AuctionHub");
 app.MapControllers();
 
+app.MapControllers();
 app.Run();
