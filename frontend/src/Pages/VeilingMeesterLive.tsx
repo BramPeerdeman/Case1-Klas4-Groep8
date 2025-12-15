@@ -91,7 +91,7 @@ export default function VeilingMeesterLive() {
   return (
     <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
       {/* Header */}
-      <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/admin')} sx={{ mb: 2 }}>
+      <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/Veilingmeester')} sx={{ mb: 2 }}>
         Terug naar Dashboard
       </Button>
       

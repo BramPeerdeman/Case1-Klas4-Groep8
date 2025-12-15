@@ -60,7 +60,7 @@ export default function AdminPage() {
         
         // 2. Automatically navigate to the Live Screen after 1.5 seconds
         setTimeout(() => {
-            navigate('/veiling-live'); 
+            navigate('/VeilingmeesterLive'); 
         }, 1500);
 
     } catch (e) { 
@@ -80,7 +80,7 @@ export default function AdminPage() {
                 variant="outlined" 
                 color="info" 
                 startIcon={<MonitorHeartIcon />}
-                onClick={() => navigate('/veiling-live')}
+                onClick={() => navigate('/VeilingmeesterLive')}
             >
                 Ga naar Live Scherm
             </Button>
