@@ -13,11 +13,14 @@ import ProtectedRoute from "./Components/ProtectedRoute";
 import Register from './Pages/Register';
 import AdminPage from "./Pages/AdminPage";
 import Settings from "./Pages/Settings";
+import VeilingMeesterLive from "./Pages/VeilingMeesterLive";
 import { AuthProvider } from "./Contexts/AuthContext";
 import { useUser } from "./Contexts/UserContext";
 import { UserProvider } from "./Contexts/UserContext";
 import { buildTheme } from "./dynamicTheme";
 import VerkoperPage from "./Pages/VerkoperPage";
+import Detail from "./Pages/Detail";
+import { NotificationProvider } from "./Contexts/NotificationContext";
 
 // Build theme dynamically from UiSettings
 function ThemedRoutes() {
@@ -35,8 +38,10 @@ function ThemedRoutes() {
           <Route path="/contact" element={<Contact />} />
           <Route path="/klok/:id" element={<Klok />} />
           <Route path="/Veilingmeester" element={<AdminPage />} />
+          <Route path="/VeilingmeesterLive" element={<ProtectedRoute><VeilingMeesterLive /></ProtectedRoute>} />
           <Route path="/verkoper" element={<VerkoperPage />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/product/:id" element={<Detail />} />
         </Route>
 
         <Route element={<AuthLayout />}>
@@ -54,7 +59,9 @@ const App: React.FC = () => (
   <Router>
     <UserProvider>
       <AuthProvider>
-        <ThemedRoutes />
+        <NotificationProvider>
+          <ThemedRoutes />
+        </NotificationProvider>
       </AuthProvider>
     </UserProvider>
   </Router>

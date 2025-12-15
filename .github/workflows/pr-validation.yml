@@ -1,0 +1,53 @@
+name: PR Validation (Build & Check)
+
+# Trigger de workflow bij een Pull Request naar de branch 'development'
+on:
+  pull_request:
+    branches:
+      - development
+
+jobs:
+  # Job 1: Backend bouwen en controleren
+  build-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET Core
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.x' # Komt overeen met je backend.csproj
+
+      - name: Restore dependencies
+        run: dotnet restore backend/backend.sln
+        # Pas 'backend/backend.sln' aan als je solution file ergens anders staat
+
+      - name: Build Backend
+        run: dotnet build backend/backend.sln --no-restore --configuration Release
+
+      # Optioneel: Voeg hier 'dotnet test' toe als je unit tests hebt
+      # - name: Run Tests
+      #   run: dotnet test backend/backend.sln --no-build --verbosity normal
+
+  # Job 2: Frontend bouwen en controleren
+  build-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20' # Een recente stabiele Node versie
+
+      - name: Install Dependencies
+        working-directory: ./frontend
+        run: npm ci
+        # 'npm ci' is beter voor CI-omgevingen dan 'npm install' omdat het exact de lockfile volgt
+
+      - name: Build Frontend
+        working-directory: ./frontend
+        run: npm run build
+        # Dit voert 'tsc && vite build' uit zoals in je package.json staat
