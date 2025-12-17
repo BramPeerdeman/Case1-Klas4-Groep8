@@ -80,7 +80,7 @@ namespace backend.Controllers
             return Ok(selectedproduct);
 
         }
-        [Authorize(Roles = "admin")]
+        [Authorize(Roles = "admin, veiler")]
         [HttpPut("product/{id}/veranderprijs")]
         public async Task<IActionResult> UpdateProductPrice(int id, [FromBody] decimal newPrice)
 

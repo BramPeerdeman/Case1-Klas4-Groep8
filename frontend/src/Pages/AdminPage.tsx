@@ -173,10 +173,10 @@ export default function AdminPage() {
         </Box>
       </Box>
 
-      {/* --- DEEL 1: NIEUWE PRODUCTEN (Activeren) --- */}
+      
       <Paper sx={{ p: 2, mb: 4, bgcolor: '#fff8e1' }}>
         <Typography variant="h6" gutterBottom color="orange">
-            ⚠️ 1. Nieuwe Aanmeldingen (Bepaal Startprijs)
+            Nieuwe Aanmeldingen (Bepaal Startprijs)
         </Typography>
         
         {newProducts.length === 0 ? (
