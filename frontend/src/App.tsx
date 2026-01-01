@@ -21,6 +21,7 @@ import { buildTheme } from "./dynamicTheme";
 import VerkoperPage from "./Pages/VerkoperPage";
 import Detail from "./Pages/Detail";
 import { NotificationProvider } from "./Contexts/NotificationContext";
+import { useAuth } from "./Contexts/AuthContext";
 
 // Build theme dynamically from UiSettings
 function ThemedRoutes() {
@@ -33,7 +34,7 @@ function ThemedRoutes() {
       <CssBaseline />
       <Routes>
         <Route element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
-          <Route path="/" element={<Home />} />
+          <Route path="/" element={<RoleBasedHome />} />
           <Route path="/about" element={<About />} />
           <Route path="/contact" element={<Contact />} />
           <Route path="/klok/:id" element={<Klok />} />
@@ -72,3 +73,15 @@ const App: React.FC = () => (
 
 export default App;
 
+
+function RoleBasedHome() {
+  const { isAdmin, isVeiler } = useAuth();
+
+  if (isAdmin) {
+    return <Navigate to="/Veilingmeester" replace />;
+  } else if (isVeiler) {
+    return <Navigate to="/verkoper" replace />;
+  } else {
+    return <Home />;
+  }
+}
