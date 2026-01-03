@@ -38,7 +38,7 @@ const ProductCard: React.FC<ProductProps> = ({ product }) => {
       
       <CardContent>
         <Typography variant="h6">{product.name}</Typography>
-        <Typography color="text.secondary">{product.price.toFixed(2)} EUR</Typography>
+        <Typography color="text.secondary">{(product.price ?? 0).toFixed(2)} EUR</Typography>
       </CardContent>
       <CardActions>
         <Button size="small" variant="contained" onClick={handleView}>
