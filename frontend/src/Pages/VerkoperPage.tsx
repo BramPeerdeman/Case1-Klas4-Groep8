@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { Container, Box, TextField, Button, Typography, Card, CardContent } from "@mui/material";
 import { useNotification } from "../Contexts/NotificationContext";
+import { useNavigate } from "react-router-dom"; // Add this import
+import ListIcon from '@mui/icons-material/List'; // Add this import
 
 // Interface voor het formulier
 interface NewProductForm {
@@ -13,7 +15,8 @@ interface NewProductForm {
 }
 
 export default function VerkoperPage() {
-  
+  const navigate = useNavigate(); // Voor navigatie naar Mijn Aanbod pagina
+
   // State
   const [formData, setFormData] = useState<NewProductForm>({
     naam: "",
@@ -78,7 +81,17 @@ export default function VerkoperPage() {
 
   return (
     <Container maxWidth="sm" sx={{ mt: 4 }}>
-      <Typography variant="h4" gutterBottom>Verkoper Dashboard</Typography>
+
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+        <Typography variant="h4" gutterBottom>Verkoper Dashboard</Typography>
+        <Button 
+          variant="outlined" 
+          startIcon={<ListIcon />}
+          onClick={() => navigate('/verkoper/producten')}
+        >
+          Mijn Producten
+        </Button>
+      </Box>
       
       <Card>
         <CardContent>

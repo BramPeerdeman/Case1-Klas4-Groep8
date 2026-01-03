@@ -22,6 +22,7 @@ import VerkoperPage from "./Pages/VerkoperPage";
 import Detail from "./Pages/Detail";
 import { NotificationProvider } from "./Contexts/NotificationContext";
 import { useAuth } from "./Contexts/AuthContext";
+import MyProducts from "./Pages/MyProducts";
 
 // Build theme dynamically from UiSettings
 function ThemedRoutes() {
@@ -43,6 +44,7 @@ function ThemedRoutes() {
           <Route path="/verkoper" element={<ProtectedRoute requiredRole="veiler"><VerkoperPage /></ProtectedRoute>} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/product/:id" element={<Detail />} />
+          <Route path="/verkoper/producten" element={<ProtectedRoute requiredRole="veiler"><MyProducts /></ProtectedRoute>} />
         </Route>
 
         <Route element={<AuthLayout />}>
@@ -80,7 +82,7 @@ function RoleBasedHome() {
   if (isAdmin) {
     return <Navigate to="/Veilingmeester" replace />;
   } else if (isVeiler) {
-    return <Navigate to="/verkoper" replace />;
+    return <Navigate to="/verkoper/producten" replace />;
   } else {
     return <Home />;
   }

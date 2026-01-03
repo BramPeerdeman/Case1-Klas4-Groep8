@@ -64,7 +64,7 @@ namespace backend.Controllers.Tests
                 Naam = "Veiling Item 1",
                 Beschrijving = "Een prachtige antieke vaas",
                 StartPrijs = 50,
-                VerkoperID = 1 // Simulating the Veiler's ID
+                VerkoperID = "1" // Simulating the Veiler's ID
             };
 
             // Act
@@ -142,7 +142,7 @@ namespace backend.Controllers.Tests
                 ProductID = 1,
                 Naam = "Test Bloem",
                 StartPrijs = 10,
-                VerkoperID = 2
+                VerkoperID = "2"
             };
             dbContext.Producten.Add(testProduct);
             await dbContext.SaveChangesAsync();

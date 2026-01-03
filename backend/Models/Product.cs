@@ -25,7 +25,7 @@ public class Product
     public float? Eindprijs { get; set; }
 
     // Relatie naar Veiler
-    public int? VerkoperID { get; set; }
+    public string? VerkoperID { get; set; }
 
 
     }
