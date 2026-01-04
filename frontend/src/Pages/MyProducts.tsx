@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import ProductCard from "../Components/ProductCard"; // Or copy the Card logic from Home if you prefer consistency
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import AddIcon from '@mui/icons-material/Add';
+import { useNotification } from "../Contexts/NotificationContext";
 
 interface Product {
   productID: number;
@@ -18,6 +19,38 @@ export default function MyProducts() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const navigate = useNavigate();
+  const { notify } = useNotification();
+
+  //Delete functionaliteit
+  const handleDelete = async (id: number) => {
+    if (!window.confirm("Weet u zeker dat u dit product wilt verwijderen?")) {
+      return;
+    }
+
+    const token = localStorage.getItem("token");
+    const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5299';
+
+    try {
+      const response = await fetch(`${baseUrl}/api/Product/product/${id}`, {
+        method: "DELETE",
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        // Remove from local state immediately so user sees result
+        setProducts((prevProducts) => prevProducts.filter(p => p.productID !== id));
+        if (notify) notify("Product verwijderd.", "success");
+      } else {
+        const errMsg = await response.text();
+        console.error("Delete failed:", errMsg);
+        if (notify) notify("Verwijderen mislukt.", "error");
+      }
+    } catch (error) {
+      console.error("Network error:", error);
+    }
+  };
 
   useEffect(() => {
     const fetchMyProducts = async () => {
@@ -80,18 +113,20 @@ export default function MyProducts() {
         <Box display="flex" justifyContent="center" mt={4}><CircularProgress /></Box>
       ) : products.length === 0 ? (
         <Alert severity="info">U heeft nog geen producten aangeboden.</Alert>
-      ) : (
+      ) :  (
         <Grid container spacing={3}>
           {products.map((product) => (
             <Grid size={{xs:12, sm:6, md:4}} key={product.productID}>
-              {/* Mapping API data to ProductCard props */}
               <ProductCard 
                 product={{
                   id: product.productID,
                   name: product.naam,
-                  price: product.minPrijs,
+                  // Use MinPrijs for seller view
+                  price: product.minPrijs, 
                   imageUrl: product.imageUrl
-                }} 
+                }}
+                // PASS THE DELETE FUNCTION
+                onDelete={handleDelete}
               />
             </Grid>
           ))}
