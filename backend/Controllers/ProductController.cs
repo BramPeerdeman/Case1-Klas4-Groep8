@@ -70,6 +70,36 @@ namespace backend.Controllers
             return CreatedAtAction(nameof(GetProductById), new { id = product.ProductID }, product);
         }
 
+        [HttpDelete("product/{id}")]
+        [Authorize(Roles = "veiler")]
+        public async Task<IActionResult> DeleteProduct(int id)
+        {
+            // 1. Get the current User ID (Same logic as in Create/GetMyProducts)
+            var userId = User.FindFirstValue(JwtRegisteredClaimNames.Sub)
+                         ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            if (string.IsNullOrEmpty(userId))
+                return Unauthorized();
+
+            // 2. Find the product
+            var product = await _context.Producten.FindAsync(id);
+
+            if (product == null)
+                return NotFound("Product niet gevonden.");
+
+            // 3. SECURITY CHECK: Ensure the logged-in user is the owner
+            if (product.VerkoperID != userId)
+            {
+                return Forbid("U mag alleen uw eigen producten verwijderen.");
+            }
+
+            // 4. Delete
+            _context.Producten.Remove(product);
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "Product verwijderd" });
+        }
+
         [HttpPut("product/{id}")]
         public async Task<IActionResult> UpdateProduct(int id, [FromBody] Product updatedproduct)
         {
