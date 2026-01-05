@@ -6,48 +6,40 @@ import {
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import SaveIcon from '@mui/icons-material/Save';
 import RefreshIcon from '@mui/icons-material/Refresh';
+import DeleteIcon from '@mui/icons-material/Delete';
 import MonitorHeartIcon from '@mui/icons-material/MonitorHeart';
 import { useNotification } from "../Contexts/NotificationContext";
 import { useNavigate } from "react-router-dom";
 
-// Interface voor producten (matcht met je Backend Model)
 interface Product {
   productID: number;
   naam: string;
-  minPrijs: number;     // Vanaf verkoper
-  startPrijs?: number;  // Door admin ingesteld
+  minPrijs: number;
+  startPrijs?: number;
   imageUrl: string;
   beschrijving: string;
 }
 
 export default function AdminPage() {
-  // State voor de twee lijsten
-  const [newProducts, setNewProducts] = useState<Product[]>([]);       // Rood/Oranje: Nog activeren
-  const [veilbareProducts, setVeilbareProducts] = useState<Product[]>([]); // Groen: Klaar voor queue
+  const [newProducts, setNewProducts] = useState<Product[]>([]);
+  const [veilbareProducts, setVeilbareProducts] = useState<Product[]>([]);
   
-  // State voor input velden (startprijs typen)
   const [inputPrijzen, setInputPrijzen] = useState<{ [key: number]: string }>({});
-  
-  // State voor selectie (checkboxes voor queue)
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
 
   const { notify } = useNotification();
   const navigate = useNavigate();
+  const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5299';
 
-  // --- STAP 1: DATA OPHALEN (BEIDE LIJSTEN) ---
   const fetchAllData = async () => {
     const token = localStorage.getItem("token");
-    const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5299';
-    
     try {
-      // Lijst 1: Nieuwe producten (Zonder startprijs)
       const resNew = await fetch(`${baseUrl}/api/Product/product/onveilbarelist`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (resNew.ok) setNewProducts(await resNew.json());
       else setNewProducts([]);
 
-      // Lijst 2: Veilbare producten (Met startprijs)
       const resVeilbaar = await fetch(`${baseUrl}/api/Product/product/veilbarelijst`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -63,8 +55,6 @@ export default function AdminPage() {
     fetchAllData();
   }, []);
 
-
-  // --- STAP 2: PRIJS ACTIVEREN LOGICA (BOVENSTE TABEL) ---
   const handlePriceChange = (id: number, value: string) => {
     setInputPrijzen(prev => ({ ...prev, [id]: value }));
   };
@@ -78,10 +68,7 @@ export default function AdminPage() {
 
     try {
         const token = localStorage.getItem("token");
-        const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5299';
-  
-        // 1. Stuur de prijs naar de backend
-        const response = await fetch(`${baseUrl}/api/Product/product/${product.productID}/veranderprijs`, {
+        await fetch(`${baseUrl}/api/Product/product/${product.productID}/veranderprijs`, {
           method: 'PUT',
           headers: { 
               'Content-Type': 'application/json',
@@ -90,11 +77,8 @@ export default function AdminPage() {
           body: JSON.stringify(Number(prijs))
         });
         
-        if (!response.ok) throw new Error("Fout bij opslaan");
-  
         notify("Product geactiveerd!", "success");
         
-        // 2. Reset input en ververs de lijsten (Product verhuist van Boven naar Beneden)
         const newInputs = { ...inputPrijzen };
         delete newInputs[product.productID];
         setInputPrijzen(newInputs);
@@ -105,8 +89,29 @@ export default function AdminPage() {
     }
   };
 
+  // --- NEW: REMOVE FROM QUEUE (RESET PRICE TO 0) ---
+  const handleRemoveFromQueue = async (product: Product) => {
+    if(!confirm(`Weet je zeker dat je ${product.naam} uit de lijst wilt halen?`)) return;
 
-  // --- STAP 3: QUEUE STARTEN LOGICA (ONDERSTE TABEL) ---
+    try {
+        const token = localStorage.getItem("token");
+        await fetch(`${baseUrl}/api/Product/product/${product.productID}/veranderprijs`, {
+          method: 'PUT',
+          headers: { 
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}` 
+          },
+          body: JSON.stringify(0) // Reset to 0
+        });
+        
+        notify("Product verwijderd uit veilbare lijst.", "info");
+        fetchAllData(); // Refresh tables
+
+    } catch (e) {
+        notify("Fout bij verwijderen.", "error");
+    }
+  };
+
   const handleSelectAll = (e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.checked) setSelectedIds(veilbareProducts.map(p => p.productID));
     else setSelectedIds([]);
@@ -120,9 +125,7 @@ export default function AdminPage() {
   const handleStartQueue = async () => {
     try {
         const token = localStorage.getItem("token");
-        const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5299';
-
-        // 1. Voeg geselecteerde ID's toe aan de queue
+        
         await fetch(`${baseUrl}/api/Veiling/queue/add`, {
             method: 'POST',
             headers: { 
@@ -132,17 +135,14 @@ export default function AdminPage() {
             body: JSON.stringify(selectedIds)
         });
 
-        // 2. Start de queue (Socket openen)
         await fetch(`${baseUrl}/api/Veiling/queue/start`, {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${token}` }
         });
 
-        // 1. Notify Success
         notify("Queue gestart! U wordt doorgestuurd...", "success", "top-center");
         setSelectedIds([]);
         
-        // 2. Automatically navigate to the Live Screen after 1.5 seconds
         setTimeout(() => {
             navigate('/VeilingmeesterLive'); 
         }, 1500);
@@ -153,14 +153,11 @@ export default function AdminPage() {
     }
   };
 
-  // --- RENDER ---
   return (
     <Container maxWidth="lg" sx={{ mt: 4, mb: 10 }}>
       <Box display="flex" justifyContent="space-between" mb={3} alignItems="center">
         <Typography variant="h4">Veilingmeester Dashboard</Typography>
-        
         <Box display="flex" gap={2}>
-            {/* Manual Navigation Button (in case they leave the page and want to go back) */}
             <Button 
                 variant="outlined" 
                 color="info" 
@@ -172,7 +169,6 @@ export default function AdminPage() {
             <Button startIcon={<RefreshIcon />} onClick={fetchAllData}>Verversen</Button>
         </Box>
       </Box>
-
       
       <Paper sx={{ p: 2, mb: 4, bgcolor: '#fff8e1' }}>
         <Typography variant="h6" gutterBottom color="orange">
@@ -231,7 +227,6 @@ export default function AdminPage() {
 
       <Divider sx={{ my: 4 }} />
 
-      {/* --- DEEL 2: KLAAR VOOR VEILING (Queue) --- */}
       <Paper sx={{ p: 2, bgcolor: '#e8f5e9' }}>
         <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
             <Typography variant="h6" color="green">
@@ -263,6 +258,7 @@ export default function AdminPage() {
                     <TableCell>Product</TableCell>
                     <TableCell>Startprijs</TableCell>
                     <TableCell>Status</TableCell>
+                    <TableCell>Actie</TableCell> {/* Added Column */}
                 </TableRow>
                 </TableHead>
                 <TableBody>
@@ -278,9 +274,19 @@ export default function AdminPage() {
                         {p.imageUrl && <img src={p.imageUrl} width={50} style={{borderRadius: 4}} alt={p.naam}/>}
                     </TableCell>
                     <TableCell>{p.naam}</TableCell>
-                    
                     <TableCell sx={{ fontWeight: 'bold' }}>€ {p.startPrijs}</TableCell>
                     <TableCell><Chip label="Klaar" color="success" size="small" /></TableCell>
+                    <TableCell>
+                        {/* New Delete Button */}
+                        <Button 
+                            color="error" 
+                            size="small"
+                            startIcon={<DeleteIcon />}
+                            onClick={() => handleRemoveFromQueue(p)}
+                        >
+                            Verwijder
+                        </Button>
+                    </TableCell>
                     </TableRow>
                 ))}
                 </TableBody>
@@ -288,7 +294,6 @@ export default function AdminPage() {
             </TableContainer>
         )}
       </Paper>
-
     </Container>
   );
 }

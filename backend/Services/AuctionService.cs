@@ -6,10 +6,9 @@ using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
-
 namespace backend.Services
 {
-    public class AuctionService: IAuctionService
+    public class AuctionService : IAuctionService
     {
         private readonly IServiceScopeFactory _scopeFactory;
         private readonly IHubContext<AuctionHub> _hub;
@@ -58,11 +57,11 @@ namespace backend.Services
             else
             {
                 _isQueueRunning = false;
-                // Optioneel: stuur bericht "Klaar!" naar frontend
+                // Optional: Notify frontend queue is empty
             }
         }
 
-            public async Task StartAuctionAsync(int productId)
+        public async Task StartAuctionAsync(int productId)
         {
             var auction = _activeAuctions.FirstOrDefault(a => a.ProductId == productId);
             if (auction == null)
@@ -127,7 +126,7 @@ namespace backend.Services
                 context.Veilingen.Add(veiling);
 
                 var prod = await context.Producten.FindAsync(productId);
-                if (prod != null) prod.IsAuctionable = false; // Markeer als niet meer veilbaar
+                if (prod != null) prod.IsAuctionable = false;
 
                 await context.SaveChangesAsync();
             }
@@ -155,6 +154,25 @@ namespace backend.Services
             return true;
         }
 
+        // --- NEW IMPLEMENTATION: FORCE NEXT ---
+        public async Task ForceNextAsync()
+        {
+            // 1. Stop current auction if running
+            var active = _activeAuctions.FirstOrDefault(a => a.IsRunning);
+            if (active != null)
+            {
+                active.IsRunning = false;
+                // We do not save a 'Veiling' record because it wasn't sold.
+                // It simply stops being "Active".
+            }
+
+            // 2. Ensure queue is marked running so it picks up the next one
+            _isQueueRunning = true;
+
+            // 3. Immediately trigger next
+            await StartNextInQueue();
+        }
+
         public async Task MoveNewAuctionableProductsAsync(CancellationToken ct = default)
         {
             using (var scope = _scopeFactory.CreateScope())
@@ -170,5 +188,4 @@ namespace backend.Services
         public async Task CreateQueueAsync() { await Task.CompletedTask; }
         public async Task StartnextAuctionAsync() { await Task.CompletedTask; }
     }
-
 }

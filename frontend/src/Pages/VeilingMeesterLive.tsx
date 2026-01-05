@@ -68,16 +68,14 @@ export default function VeilingMeesterLive() {
     };
   }, []);
 
-  // 2. CHECK ACTIVE AUCTION ON LOAD (The Fix)
+  // --- FIX 1: RACE CONDITION CHECK ---
   useEffect(() => {
     const checkActiveAuction = async () => {
         try {
-            // A. Ask backend if anything is running
             const res = await fetch(`${baseUrl}/api/Veiling/active`);
             if (res.ok) {
                 const auctionState = await res.json();
                 
-                // B. If running, fetch the product details
                 if (auctionState.isRunning) {
                     console.log("Found active auction:", auctionState);
                     const productDetails = await fetchProductDetails(auctionState.productId);
@@ -87,10 +85,9 @@ export default function VeilingMeesterLive() {
                             id: productDetails.productID,
                             productNaam: productDetails.naam,
                             imageUrl: productDetails.imageUrl,
-                            startPrijs: productDetails.startPrijs // Note: Ensure backend sends startPrijs in product details
+                            startPrijs: productDetails.startPrijs 
                         });
 
-                        // C. Sync the clock
                         startClockAnimation(auctionState.startTime, productDetails.startPrijs);
                         setStatus("RUNNING");
                     }
@@ -102,13 +99,11 @@ export default function VeilingMeesterLive() {
     };
 
     checkActiveAuction();
-  }, []); // Run once on mount
+  }, []);
 
-  // 3. EVENT LISTENERS
   useEffect(() => {
     if (!connection) return;
 
-    // EVENT: START
     connection.on("ReceiveNewAuction", async (data: any) => {
         console.log("Nieuwe veiling gestart (Event):", data);
         stopClock(); 
@@ -129,7 +124,6 @@ export default function VeilingMeesterLive() {
         }
     });
 
-    // EVENT: RESULT (SOLD)
     connection.on("ReceiveAuctionResult", (data: any) => {
         console.log("Veiling resultaat:", data);
         stopClock();
@@ -141,7 +135,6 @@ export default function VeilingMeesterLive() {
 
   }, [connection, notify]);
 
-  // 4. HELPER: Fetch Product Data
   const fetchProductDetails = async (id: number) => {
       try {
           const res = await fetch(`${baseUrl}/api/Product/products`);
@@ -155,7 +148,6 @@ export default function VeilingMeesterLive() {
       return null;
   };
 
-  // 5. HELPER: Clock Animation
   const startClockAnimation = (startTimeString: string, startPrice: number) => {
       stopClock();
       
@@ -166,15 +158,15 @@ export default function VeilingMeesterLive() {
           const now = Date.now();
           const elapsed = now - startTime;
 
+          // --- FIX 2: CLAMP PRICE TO MINIMUM TO PREVENT GLITCHES ---
           if (elapsed >= dropDuration) {
-              setCurrentPrice(minPrice);
+              setCurrentPrice(minPrice); // Explicitly snap to bottom
               setStatus("TIMEOUT");
               stopClock();
           } else {
               const progress = elapsed / dropDuration;
               const newPrice = startPrice - (progress * (startPrice - minPrice));
               
-              // Prevent displaying negative/weird numbers if sync is off
               if (newPrice < minPrice) setCurrentPrice(minPrice);
               else setCurrentPrice(newPrice);
           }
@@ -188,13 +180,24 @@ export default function VeilingMeesterLive() {
       }
   };
 
-  // 6. BUTTON ACTIONS
   const handleEmergencyStop = async () => {
       notify("Noodstop functionaliteit moet nog geïmplementeerd worden in backend", "warning");
   };
 
+  // --- FIX 3: WIRED UP FORCE NEXT BUTTON ---
   const handleForceNext = async () => {
-      notify("Volgende item forceren...", "info");
+      if(!confirm("Weet je zeker dat je dit item wilt overslaan?")) return;
+
+      try {
+          const token = localStorage.getItem("token");
+          await fetch(`${baseUrl}/api/Veiling/force-next`, {
+             method: 'POST',
+             headers: { 'Authorization': `Bearer ${token}` }
+          });
+          notify("Volgende item geforceerd.", "info");
+      } catch(e) {
+          notify("Kon item niet forceren", "error");
+      }
   };
 
   return (
@@ -204,7 +207,6 @@ export default function VeilingMeesterLive() {
       </Button>
       
       <Grid container spacing={4}>
-        {/* LEFT: MONITOR */}
         <Grid size={{ xs: 12, md: 7 }}>
           <Paper 
             elevation={6} 
@@ -244,7 +246,6 @@ export default function VeilingMeesterLive() {
           </Paper>
         </Grid>
 
-        {/* RIGHT: CONTROLS */}
         <Grid size={{ xs: 12, md: 5 }}>
           <Card elevation={3} sx={{ height: '100%' }}>
             <CardContent>
