@@ -61,6 +61,15 @@ namespace backend.Controllers
             return Ok(new { message = "Queue gestart!" });
         }
 
+        // --- NEW ENDPOINT: FORCE NEXT ---
+        [HttpPost("force-next")]
+        [Authorize(Roles = "admin")]
+        public async Task<IActionResult> ForceNext()
+        {
+            await _auctionService.ForceNextAsync();
+            return Ok(new { message = "Volgende item geforceerd." });
+        }
+
         // 4. BOD: Kopen
         [HttpPost("koop")]
         public async Task<IActionResult> Koop([FromBody] KoopRequest request)
