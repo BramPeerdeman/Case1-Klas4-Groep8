@@ -1,143 +1,235 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { 
   Container, Box, Typography, Card, CardContent, Button, 
-  Grid, Divider, Chip, Paper,
+  Grid, Divider, Chip, Paper, CircularProgress
 } from "@mui/material";
-import { HubConnectionBuilder, LogLevel, HubConnection } from "@microsoft/signalr";
+import * as signalR from "@microsoft/signalr"; // Changed to match Klok.tsx import style
 import StopCircleIcon from '@mui/icons-material/StopCircle';
 import SkipNextIcon from '@mui/icons-material/SkipNext';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { useNavigate } from "react-router-dom";
-import { useNotification } from "../Contexts/NotificationContext"; // Your new context
+import { useNotification } from "../Contexts/NotificationContext";
 
-// Types for our state
+// Types
 interface CurrentAuctionItem {
+  id: number;
   productNaam: string;
   imageUrl: string;
   startPrijs: number;
 }
 
 export default function VeilingMeesterLive() {
-  const [connection, setConnection] = useState<HubConnection | null>(null);
-  const [price, setPrice] = useState<number>(0);
-  const [currentItem, setCurrentItem] = useState<CurrentAuctionItem | null>(null);
-  const [status, setStatus] = useState<string>("Wachten op start...");
-  
-  const { notify } = useNotification();
   const navigate = useNavigate();
+  const { notify } = useNotification();
+  
+  // State
+  const [connection, setConnection] = useState<signalR.HubConnection | null>(null);
+  const [currentPrice, setCurrentPrice] = useState<number>(0);
+  const [currentItem, setCurrentItem] = useState<CurrentAuctionItem | null>(null);
+  const [status, setStatus] = useState<"WAITING" | "RUNNING" | "SOLD" | "TIMEOUT">("WAITING");
+  const [buyerName, setBuyerName] = useState<string>("");
 
-  // 1. Initialize SignalR Connection (Same as KlokPage)
+  // Refs for timer logic
+  const timerRef = useRef<number | null>(null);
+  const dropDuration = 30000; // 30 seconds
+  const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5299';
+
+  // 1. SIGNALR CONNECTION
   useEffect(() => {
-    const newConnection = new HubConnectionBuilder()
-      .withUrl("http://localhost:5299/auctionHub") // Adjust port if needed
-      .configureLogging(LogLevel.Information)
+    // Build the connection instance
+    const newConnection = new signalR.HubConnectionBuilder()
+      .withUrl(`${baseUrl}/AuctionHub`)
       .withAutomaticReconnect()
       .build();
 
-    setConnection(newConnection);
+    // Flag to track if component is mounted
+    let isMounted = true;
+
+    const startConnection = async () => {
+      try {
+        await newConnection.start();
+        
+        // Once connected, check if we should stay connected
+        if (isMounted) {
+          console.log("Veilingmeester Connected");
+          setConnection(newConnection);
+        } else {
+          // If the component unmounted while we were connecting, stop it now
+          // This avoids the "stopped during negotiation" error
+          newConnection.stop();
+        }
+      } catch (err) {
+        // Only log errors if we are still mounted
+        if (isMounted) {
+            console.error("SignalR Connection Error: ", err);
+        }
+      }
+    };
+
+    startConnection();
+
+    return () => {
+      isMounted = false;
+      
+      // CRITICAL FIX: Only stop immediately if we are fully connected.
+      // If we are 'Connecting', we let startConnection() finish and handle the stop.
+      if (newConnection.state === signalR.HubConnectionState.Connected) {
+          newConnection.stop().catch(() => {});
+      }
+    };
   }, []);
-
-  // 2. Setup Listeners
+  // 2. EVENT LISTENERS
   useEffect(() => {
-    if (connection) {
-      connection.start()
-        .then(() => {
-          console.log("Auctioneer connected to Hub");
-          
-          // Listen for price updates
-          connection.on("ReceivePriceUpdate", (newPrice: number) => {
-            setPrice(newPrice);
-            setStatus("Actief");
-          });
+    if (!connection) return;
 
-          // Listen for new product start
-          connection.on("StartNewAuction", (product: any) => {
+    // EVENT: START
+    connection.on("ReceiveNewAuction", async (data: any) => {
+        console.log("Nieuwe veiling gestart:", data);
+        stopClock(); // Ensure old timers are killed
+
+        // 1. Fetch full product details (SignalR only sends ID)
+        const productDetails = await fetchProductDetails(data.productId);
+        
+        if (productDetails) {
             setCurrentItem({
-                productNaam: product.name,
-                imageUrl: product.imageUrl,
-                startPrijs: product.price
+                id: productDetails.productID,
+                productNaam: productDetails.naam,
+                imageUrl: productDetails.imageUrl,
+                startPrijs: data.startPrijs
             });
-            setPrice(product.price);
-            setStatus("Veiling loopt");
-            notify(`Gestart: ${product.name}`, "info", "top-right");
-          });
 
-          // Listen for end
-          connection.on("AuctionEnded", (message: string) => {
-            setStatus(`Afgelopen: ${message}`);
-            notify(message, "warning", "top-center");
-          });
-        })
-        .catch(e => console.error("Connection failed: ", e));
-    }
+            // 2. Start the local price ticker
+            startClockAnimation(data.startTime, data.startPrijs);
+            setStatus("RUNNING");
+            notify(`Veiling gestart: ${productDetails.naam}`, "info");
+        }
+    });
+
+    // EVENT: RESULT (SOLD)
+    connection.on("ReceiveAuctionResult", (data: any) => {
+        console.log("Veiling resultaat:", data);
+        stopClock();
+        setStatus("SOLD");
+        setCurrentPrice(data.price);
+        setBuyerName(data.buyer);
+        notify(`Verkocht aan ${data.buyer} voor €${data.price}`, "success");
+    });
+
+    // Cleanup listeners off specifically this connection instance if needed
+    // (React useEffect cleanup handles connection stop usually)
+
   }, [connection, notify]);
 
-  // 3. Admin Actions
+  // 3. HELPER: Fetch Product Data
+  const fetchProductDetails = async (id: number) => {
+      try {
+          const res = await fetch(`${baseUrl}/api/Product/products`);
+          if (res.ok) {
+              const allProducts = await res.json();
+              return allProducts.find((p: any) => p.productID === id);
+          }
+      } catch (e) {
+          console.error("Failed to fetch product details", e);
+      }
+      return null;
+  };
+
+  // 4. HELPER: Clock Animation (Client Side Ticker)
+  const startClockAnimation = (startTimeString: string, startPrice: number) => {
+      stopClock();
+      
+      const startTime = new Date(startTimeString).getTime();
+      const minPrice = startPrice * 0.3; 
+
+      timerRef.current = window.setInterval(() => {
+          const now = Date.now();
+          const elapsed = now - startTime;
+
+          if (elapsed >= dropDuration) {
+              setCurrentPrice(minPrice);
+              setStatus("TIMEOUT");
+              stopClock();
+          } else {
+              // Calculate price based on time elapsed
+              const progress = elapsed / dropDuration;
+              const newPrice = startPrice - (progress * (startPrice - minPrice));
+              setCurrentPrice(newPrice);
+          }
+      }, 50); // Update UI every 50ms
+  };
+
+  const stopClock = () => {
+      if (timerRef.current) {
+          clearInterval(timerRef.current);
+          timerRef.current = null;
+      }
+  };
+
+  // 5. BUTTON ACTIONS
   const handleEmergencyStop = async () => {
-    // This would call an endpoint like /api/Veiling/stop
-    const token = localStorage.getItem("token");
-    try {
-        await fetch('http://localhost:5299/api/Veiling/stop', {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        notify("NOODSTOP GEACTIVEERD", "error", "top-center");
-    } catch (e) {
-        console.error(e);
-        notify("Kon niet stoppen", "error");
-    }
+      // Logic to call API stop endpoint
+      notify("Noodstop functionaliteit moet nog geïmplementeerd worden in backend", "warning");
+  };
+
+  const handleForceNext = async () => {
+      // Logic to call API force next
+      notify("Volgende item forceren...", "info");
   };
 
   return (
     <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
-      {/* Header */}
       <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/Veilingmeester')} sx={{ mb: 2 }}>
         Terug naar Dashboard
       </Button>
       
       <Grid container spacing={4}>
-        {/* LEFT COLUMN: THE CLOCK MONITOR */}
-        {/* FIX: Use size={{ ... }} instead of xs={...} */}
+        {/* LEFT: MONITOR */}
         <Grid size={{ xs: 12, md: 7 }}>
           <Paper 
             elevation={6} 
             sx={{ 
                 p: 5, 
                 textAlign: 'center', 
-                bgcolor: status === 'Actief' ? '#e3f2fd' : '#f5f5f5',
+                bgcolor: status === 'RUNNING' ? '#e3f2fd' : (status === 'SOLD' ? '#e8f5e9' : '#f5f5f5'),
                 minHeight: '400px',
                 display: 'flex',
                 flexDirection: 'column',
                 justifyContent: 'center',
                 alignItems: 'center',
                 border: '4px solid',
-                borderColor: status === 'Actief' ? 'primary.main' : 'grey.400',
-                borderRadius: '50%' 
+                borderColor: status === 'RUNNING' ? 'primary.main' : (status === 'SOLD' ? 'success.main' : 'grey.400'),
+                borderRadius: '50%',
+                transition: 'all 0.3s'
             }}
           >
             <Typography variant="h6" color="textSecondary" gutterBottom>
               HUIDIGE PRIJS
             </Typography>
-            <Typography variant="h1" sx={{ fontWeight: 'bold', fontSize: '6rem' }}>
-              € {price.toFixed(2)}
+            <Typography variant="h1" sx={{ fontWeight: 'bold', fontSize: '5rem', fontFamily: 'monospace' }}>
+               € {currentPrice ? currentPrice.toFixed(2) : "0.00"}
             </Typography>
+            
             <Chip 
-                label={status.toUpperCase()} 
-                color={status === 'Actief' ? "success" : "default"} 
-                sx={{ mt: 2 }} 
+                label={status} 
+                color={status === 'RUNNING' ? "primary" : (status === 'SOLD' ? "success" : "default")} 
+                sx={{ mt: 2, fontSize: '1.2rem', p: 2 }} 
             />
+            
+            {status === 'SOLD' && (
+                <Typography variant="h6" color="success.main" mt={2}>
+                    Koper: {buyerName}
+                </Typography>
+            )}
           </Paper>
         </Grid>
 
-        {/* RIGHT COLUMN: CONTROLS & INFO */}
-        {/* FIX: Use size={{ ... }} instead of xs={...} */}
+        {/* RIGHT: CONTROLS */}
         <Grid size={{ xs: 12, md: 5 }}>
           <Card elevation={3} sx={{ height: '100%' }}>
             <CardContent>
               <Typography variant="h4" gutterBottom>Live Controle</Typography>
               <Divider sx={{ mb: 3 }} />
 
-              {/* Current Product Info */}
               <Box mb={4}>
                 <Typography variant="overline">Nu op de klok:</Typography>
                 {currentItem ? (
@@ -146,7 +238,7 @@ export default function VeilingMeesterLive() {
                             <img 
                                 src={currentItem.imageUrl} 
                                 alt="Product" 
-                                style={{ width: 100, height: 100, objectFit: 'cover', borderRadius: 8 }} 
+                                style={{ width: 100, height: 100, objectFit: 'contain', borderRadius: 8, border: '1px solid #ddd' }} 
                             />
                         )}
                         <Box>
@@ -155,15 +247,16 @@ export default function VeilingMeesterLive() {
                         </Box>
                     </Box>
                 ) : (
-                    <Typography fontStyle="italic" color="textSecondary">
-                        Wachten op eerste item...
-                    </Typography>
+                    <Box sx={{ p: 2, bgcolor: '#f9f9f9', borderRadius: 2 }}>
+                        <Typography fontStyle="italic" color="textSecondary">
+                            Wachten op start veiling...
+                        </Typography>
+                    </Box>
                 )}
               </Box>
 
               <Divider sx={{ mb: 3 }} />
 
-              {/* ACTION BUTTONS */}
               <Typography variant="overline" color="error">Gevaarlijke Zone</Typography>
               <Box display="flex" flexDirection="column" gap={2} mt={1}>
                 <Button 
@@ -182,6 +275,7 @@ export default function VeilingMeesterLive() {
                     color="warning" 
                     size="large" 
                     startIcon={<SkipNextIcon />}
+                    onClick={handleForceNext}
                     fullWidth
                 >
                     Forceer Volgende Item
@@ -194,4 +288,4 @@ export default function VeilingMeesterLive() {
       </Grid>
     </Container>
   );
-}       
+}
