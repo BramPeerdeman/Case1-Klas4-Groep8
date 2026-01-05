@@ -3,7 +3,7 @@ import {
   Container, Box, Typography, Card, CardContent, Button, 
   Grid, Divider, Chip, Paper, CircularProgress
 } from "@mui/material";
-import * as signalR from "@microsoft/signalr"; // Changed to match Klok.tsx import style
+import * as signalR from "@microsoft/signalr";
 import StopCircleIcon from '@mui/icons-material/StopCircle';
 import SkipNextIcon from '@mui/icons-material/SkipNext';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
@@ -36,33 +36,24 @@ export default function VeilingMeesterLive() {
 
   // 1. SIGNALR CONNECTION
   useEffect(() => {
-    // Build the connection instance
     const newConnection = new signalR.HubConnectionBuilder()
       .withUrl(`${baseUrl}/AuctionHub`)
       .withAutomaticReconnect()
       .build();
 
-    // Flag to track if component is mounted
     let isMounted = true;
 
     const startConnection = async () => {
       try {
         await newConnection.start();
-        
-        // Once connected, check if we should stay connected
         if (isMounted) {
           console.log("Veilingmeester Connected");
           setConnection(newConnection);
         } else {
-          // If the component unmounted while we were connecting, stop it now
-          // This avoids the "stopped during negotiation" error
           newConnection.stop();
         }
       } catch (err) {
-        // Only log errors if we are still mounted
-        if (isMounted) {
-            console.error("SignalR Connection Error: ", err);
-        }
+        if (isMounted) console.error("SignalR Connection Error: ", err);
       }
     };
 
@@ -70,24 +61,58 @@ export default function VeilingMeesterLive() {
 
     return () => {
       isMounted = false;
-      
-      // CRITICAL FIX: Only stop immediately if we are fully connected.
-      // If we are 'Connecting', we let startConnection() finish and handle the stop.
       if (newConnection.state === signalR.HubConnectionState.Connected) {
           newConnection.stop().catch(() => {});
       }
+      stopClock();
     };
   }, []);
-  // 2. EVENT LISTENERS
+
+  // 2. CHECK ACTIVE AUCTION ON LOAD (The Fix)
+  useEffect(() => {
+    const checkActiveAuction = async () => {
+        try {
+            // A. Ask backend if anything is running
+            const res = await fetch(`${baseUrl}/api/Veiling/active`);
+            if (res.ok) {
+                const auctionState = await res.json();
+                
+                // B. If running, fetch the product details
+                if (auctionState.isRunning) {
+                    console.log("Found active auction:", auctionState);
+                    const productDetails = await fetchProductDetails(auctionState.productId);
+                    
+                    if (productDetails) {
+                        setCurrentItem({
+                            id: productDetails.productID,
+                            productNaam: productDetails.naam,
+                            imageUrl: productDetails.imageUrl,
+                            startPrijs: productDetails.startPrijs // Note: Ensure backend sends startPrijs in product details
+                        });
+
+                        // C. Sync the clock
+                        startClockAnimation(auctionState.startTime, productDetails.startPrijs);
+                        setStatus("RUNNING");
+                    }
+                }
+            }
+        } catch (error) {
+            console.log("No active auction found or error fetching.");
+        }
+    };
+
+    checkActiveAuction();
+  }, []); // Run once on mount
+
+  // 3. EVENT LISTENERS
   useEffect(() => {
     if (!connection) return;
 
     // EVENT: START
     connection.on("ReceiveNewAuction", async (data: any) => {
-        console.log("Nieuwe veiling gestart:", data);
-        stopClock(); // Ensure old timers are killed
+        console.log("Nieuwe veiling gestart (Event):", data);
+        stopClock(); 
 
-        // 1. Fetch full product details (SignalR only sends ID)
         const productDetails = await fetchProductDetails(data.productId);
         
         if (productDetails) {
@@ -98,7 +123,6 @@ export default function VeilingMeesterLive() {
                 startPrijs: data.startPrijs
             });
 
-            // 2. Start the local price ticker
             startClockAnimation(data.startTime, data.startPrijs);
             setStatus("RUNNING");
             notify(`Veiling gestart: ${productDetails.naam}`, "info");
@@ -115,12 +139,9 @@ export default function VeilingMeesterLive() {
         notify(`Verkocht aan ${data.buyer} voor €${data.price}`, "success");
     });
 
-    // Cleanup listeners off specifically this connection instance if needed
-    // (React useEffect cleanup handles connection stop usually)
-
   }, [connection, notify]);
 
-  // 3. HELPER: Fetch Product Data
+  // 4. HELPER: Fetch Product Data
   const fetchProductDetails = async (id: number) => {
       try {
           const res = await fetch(`${baseUrl}/api/Product/products`);
@@ -134,7 +155,7 @@ export default function VeilingMeesterLive() {
       return null;
   };
 
-  // 4. HELPER: Clock Animation (Client Side Ticker)
+  // 5. HELPER: Clock Animation
   const startClockAnimation = (startTimeString: string, startPrice: number) => {
       stopClock();
       
@@ -150,12 +171,14 @@ export default function VeilingMeesterLive() {
               setStatus("TIMEOUT");
               stopClock();
           } else {
-              // Calculate price based on time elapsed
               const progress = elapsed / dropDuration;
               const newPrice = startPrice - (progress * (startPrice - minPrice));
-              setCurrentPrice(newPrice);
+              
+              // Prevent displaying negative/weird numbers if sync is off
+              if (newPrice < minPrice) setCurrentPrice(minPrice);
+              else setCurrentPrice(newPrice);
           }
-      }, 50); // Update UI every 50ms
+      }, 50); 
   };
 
   const stopClock = () => {
@@ -165,14 +188,12 @@ export default function VeilingMeesterLive() {
       }
   };
 
-  // 5. BUTTON ACTIONS
+  // 6. BUTTON ACTIONS
   const handleEmergencyStop = async () => {
-      // Logic to call API stop endpoint
       notify("Noodstop functionaliteit moet nog geïmplementeerd worden in backend", "warning");
   };
 
   const handleForceNext = async () => {
-      // Logic to call API force next
       notify("Volgende item forceren...", "info");
   };
 
