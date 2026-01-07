@@ -4,6 +4,9 @@ import { useNavigate } from "react-router-dom";
 
 export default function Register() {
   const navigate = useNavigate();
+
+  // Lokaal pakt hij localhost, op Azure pakt hij de link uit .env.production
+  const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5299';
   
   // States voor alle velden uit je RegisterDto
   const [email, setEmail] = useState<string>("");
@@ -21,7 +24,7 @@ export default function Register() {
     setError(""); // Reset fouten
 
     try {
-      const response = await fetch("http://localhost:5299/api/auth/register", {
+      const response = await fetch(`${baseUrl}/api/auth/register`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
