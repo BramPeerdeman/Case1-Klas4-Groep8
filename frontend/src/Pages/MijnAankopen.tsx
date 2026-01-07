@@ -71,7 +71,7 @@ export default function MijnAankopen() {
       ) : (
         <Grid container spacing={3}>
           {aankopen.map((product) => (
-            <Grid item xs={12} sm={6} md={4} key={product.productID}>
+            <Grid size={{xs: 12, sm: 6, md: 4}} key={product.productID}>
               <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column', position: 'relative' }}>
                 {/* Badge voor datum */}
                 <Chip 

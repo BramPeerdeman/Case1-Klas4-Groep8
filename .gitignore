@@ -13,6 +13,7 @@ backend/*.user
 backend/*.suo
 backend/*.userosscache
 backend/.env
+backend/wwwroot/uploads/
 
 # =====================
 # React frontend
