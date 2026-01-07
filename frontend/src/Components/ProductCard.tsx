@@ -10,8 +10,8 @@ interface ProductProps {
     name: string;
     price: number;
     imageUrl?: string;
-    locatie?: string; // Nieuw
-    aantal?: number;  // Nieuw
+    locatie?: string;
+    aantal?: number;
   };
   onDelete?: (id: number) => void; 
 }
@@ -19,14 +19,10 @@ interface ProductProps {
 const ProductCard: React.FC<ProductProps> = ({ product, onDelete }) => {
   const navigate = useNavigate();
   
-  const handleView = () => {
-    navigate(`/klok/${product.id}`);
-  };
-
   return (
     <Card sx={{ height: "100%", display: "flex", flexDirection: "column", position: 'relative' }}>
         
-      {/* Label voor aantal (alleen als het meer dan 1 is) */}
+      {/* Label voor aantal */}
       {product.aantal !== undefined && product.aantal > 1 && (
         <Chip 
             label={`${product.aantal}x`} 
@@ -38,7 +34,7 @@ const ProductCard: React.FC<ProductProps> = ({ product, onDelete }) => {
 
       <CardMedia 
         component="img" 
-        image={getImageUrl(product.imageUrl)} // <--- Gebruik de helper functie
+        image={getImageUrl(product.imageUrl)} 
         alt={product.name} 
         height="200" 
         sx={{ objectFit: 'cover' }}
@@ -47,11 +43,9 @@ const ProductCard: React.FC<ProductProps> = ({ product, onDelete }) => {
       <CardContent sx={{ flexGrow: 1 }}>
         <Typography variant="h6" gutterBottom>{product.name}</Typography>
         
-        <Typography variant="h6" color="primary">
-            € {(product.price ?? 0).toFixed(2)}
-        </Typography>
+        {/* PRIJS IS HIER VERWIJDERD */}
 
-        {/* Toon locatie als die er is */}
+        {/* Locatie */}
         {product.locatie && (
             <Box display="flex" alignItems="center" mt={1} color="text.secondary">
                 <LocationOnIcon fontSize="small" sx={{ mr: 0.5 }} />
@@ -61,7 +55,7 @@ const ProductCard: React.FC<ProductProps> = ({ product, onDelete }) => {
       </CardContent>
       
       <CardActions sx={{ justifyContent: 'space-between', p: 2, pt: 0 }}>
-        <Button size="small" variant="contained" onClick={handleView}>
+        <Button size="small" variant="contained" onClick={() => navigate(`/klok/${product.id}`)}>
           Bekijken
         </Button>
 
