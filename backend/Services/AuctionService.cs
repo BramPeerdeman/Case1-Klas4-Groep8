@@ -118,7 +118,7 @@ namespace backend.Services
             return auction ?? new AuctionState { ProductId = productId, IsRunning = false };
         }
 
-        // --- UPDATED METHOD ---
+        // --- UPDATED METHOD IMPLEMENTATION ---
         public async Task<bool> PlaatsBod(int productId, string koperNaam, decimal bedrag, string koperId, int aantal)
         {
             var auction = _activeAuctions.FirstOrDefault(a => a.ProductId == productId);
@@ -131,6 +131,10 @@ namespace backend.Services
             auction.IsSold = true;
             auction.BuyerName = koperNaam;
             auction.FinalPrice = bedrag;
+
+            // Variables to hold data for SignalR (extracted from DB scope)
+            string sellerId = "";
+            string productName = "";
 
             // 2. Database Operations
             using (var scope = _scopeFactory.CreateScope())
@@ -148,6 +152,10 @@ namespace backend.Services
                     auction.IsSold = false;
                     return false;
                 }
+
+                // Capture data for notification before modifying/saving
+                sellerId = prod.VerkoperID ?? "";
+                productName = prod.Naam;
 
                 // Deduct Stock
                 prod.Aantal -= aantal;
@@ -181,14 +189,16 @@ namespace backend.Services
                 await context.SaveChangesAsync();
             }
 
-            // 3. SignalR Update (Live scherm) - Include amount in broadcast
+            // 3. SignalR Update (Live scherm) - Include amount, sellerId and productName in broadcast
             await _hub.Clients.All.SendAsync("ReceiveAuctionResult", new
             {
                 productId = productId,
                 sold = true,
                 buyer = koperNaam,
                 price = bedrag,
-                amount = aantal // Send amount to frontend
+                amount = aantal,
+                sellerId = sellerId,      // Added for notification
+                productName = productName // Added for notification text
             });
 
             // 4. Auto-Play Logica
