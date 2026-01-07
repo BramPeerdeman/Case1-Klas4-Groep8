@@ -19,7 +19,7 @@ public class Product
     [Column(TypeName = "decimal(18,2)")]
     public decimal? MinPrijs {  get; set; }
     public string? ImageUrl { get; set; }
-
+    public int Aantal { get; set; } = 1;
     public bool IsAuctionable { get; set; } = false;
 
     public float? Eindprijs { get; set; }
