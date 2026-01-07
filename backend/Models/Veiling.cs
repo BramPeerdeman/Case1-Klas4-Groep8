@@ -9,7 +9,7 @@ public class Veiling
 
     public int ProductID { get; set; }
 
-    public int VerkoperID { get; set; }
+    public string? VerkoperID { get; set; }
 
     public string? KoperId { get; set; }
     public Koper? Koper { get; set; } 
