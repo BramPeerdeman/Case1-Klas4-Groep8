@@ -1,38 +1,61 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Container, Grid, Typography, Button, Box, Paper, Chip } from "@mui/material";
-import GavelIcon from '@mui/icons-material/Gavel';
+import { Container, Grid, Typography, Button, Box, Paper, Chip, CircularProgress } from "@mui/material";
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import LocationOnIcon from '@mui/icons-material/LocationOn';
+import { getImageUrl } from "../Utils/ImageUtils"; 
 
 export default function Detail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [product, setProduct] = useState<any>(null);
   const [auctionStatus, setAuctionStatus] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
   const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5299';
 
   useEffect(() => {
     const fetchData = async () => {
         try {
-            // 1. Product Data
             const prodRes = await fetch(`${baseUrl}/api/Product/products`);
             const prodData = await prodRes.json();
+            
             const found = prodData.find((p: any) => p.productID.toString() === id);
             setProduct(found);
 
-            // 2. Veiling Status Checken
-            const statusRes = await fetch(`${baseUrl}/api/Veiling/status/${id}`);
-            if (statusRes.ok) {
-                const statusData = await statusRes.json();
-                setAuctionStatus(statusData);
+            if (found) {
+                const statusRes = await fetch(`${baseUrl}/api/Veiling/status/${id}`);
+                if (statusRes.ok) {
+                    const statusData = await statusRes.json();
+                    setAuctionStatus(statusData);
+                }
             }
-        } catch (e) { console.error(e); }
+        } catch (e) { 
+            console.error("Fout bij laden detail:", e); 
+        } finally {
+            setLoading(false);
+        }
     };
     if(id) fetchData();
   }, [id]);
 
-  if (!product) return <Typography sx={{p:4}}>Laden...</Typography>;
+  if (loading) {
+      return (
+        <Container sx={{ mt: 10, textAlign: 'center' }}>
+            <CircularProgress />
+            <Typography sx={{ mt: 2 }}>Product laden...</Typography>
+        </Container>
+      );
+  }
+
+  if (!product) {
+      return (
+        <Container sx={{ mt: 10 }}>
+            <Typography variant="h5">Product niet gevonden.</Typography>
+            <Button onClick={() => navigate('/')} sx={{ mt: 2 }}>Terug naar home</Button>
+        </Container>
+      );
+  }
 
   return (
     <Container maxWidth="lg" sx={{ py: 6 }}>
@@ -42,41 +65,73 @@ export default function Detail() {
 
       <Paper elevation={3} sx={{ p: 4, borderRadius: 4 }}>
         <Grid container spacing={6}>
-            {/* Afbeelding */}
+            
+            {/* LINKERKANT: Afbeelding */}
             <Grid size={{xs:12, md:6}}>
-                <img 
-                    src={product.imageUrl} 
+                <Box 
+                    component="img"
+                    src={getImageUrl(product.imageUrl)}
                     alt={product.naam} 
-                    style={{ width: '100%', borderRadius: 16, objectFit: 'cover' }} 
+                    sx={{ 
+                        width: '100%', 
+                        maxHeight: '500px',
+                        objectFit: 'contain',
+                        borderRadius: 4,
+                        bgcolor: '#f9f9f9'
+                    }} 
                 />
             </Grid>
 
-            {/* Info */}
+            {/* RECHTERKANT: Info */}
             <Grid size={{xs:12, md:6}} display="flex" flexDirection="column" justifyContent="center">
                 <Typography variant="h3" fontWeight="bold" gutterBottom>{product.naam}</Typography>
-                <Typography variant="h5" color="primary" gutterBottom>
-                    Richtprijs: € {product.startPrijs}
-                </Typography>
                 
-                <Typography variant="body1" paragraph sx={{ mt: 2, color: 'text.secondary' }}>
-                    {product.beschrijving || "Geen beschrijving beschikbaar. Een prachtig product van topkwaliteit, vers van de kweker."}
+                {/* PRIJS IS HIER VERWIJDERD */}
+                
+                {/* Specificaties: Locatie & Aantal */}
+                <Box display="flex" gap={2} mb={3} mt={2}>
+                    {product.locatie && (
+                        <Chip 
+                            icon={<LocationOnIcon />} 
+                            label={product.locatie} 
+                            variant="outlined" 
+                        />
+                    )}
+                    {product.aantal > 1 && (
+                        <Chip 
+                            label={`Voorraad: ${product.aantal} stuks`} 
+                            color="primary" 
+                            variant="outlined" 
+                        />
+                    )}
+                </Box>
+
+                <Typography variant="body1" paragraph sx={{ color: 'text.secondary', fontSize: '1.1rem' }}>
+                    {product.beschrijving || "Geen beschrijving beschikbaar."}
                 </Typography>
 
                 <Box mt={4}>
                     {auctionStatus?.isRunning ? (
-                        <Button 
-                            variant="contained" 
-                            color="error" 
-                            size="large" 
-                            startIcon={<GavelIcon />}
-                            onClick={() => navigate(`/klok/${id}`)}
-                            fullWidth
-                            sx={{ py: 2, fontSize: '1.2rem' }}
+                        <Box 
+                            textAlign="center" 
+                            p={2} 
+                            bgcolor="#e8f5e9" 
+                            borderRadius={2} 
+                            border="1px solid #4caf50"
                         >
-                            GA NAAR LIVE VEILING
-                        </Button>
+                            <Typography variant="h6" color="success.main" fontWeight="bold">
+                                🔥 NU LIVE IN DE VEILING
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">
+                                Ga naar het hoofdscherm om mee te bieden op dit product.
+                            </Typography>
+                        </Box>
                     ) : (
-                        <Chip label="Nog niet in de veiling" color="default" />
+                        <Box textAlign="center" p={2} bgcolor="#f0f0f0" borderRadius={2}>
+                            <Typography variant="body1" color="text.secondary">
+                                Dit product is momenteel niet live in de veiling.
+                            </Typography>
+                        </Box>
                     )}
                 </Box>
             </Grid>
