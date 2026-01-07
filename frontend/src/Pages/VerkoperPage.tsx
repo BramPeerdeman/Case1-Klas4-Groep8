@@ -235,7 +235,7 @@ export default function VerkoperPage() {
             {/* Datum */}
             <TextField
               label="Startdatum Veiling"
-              type="datetime-local"
+              type="date"
               name="beginDatum"
               value={formData.beginDatum}
               onChange={handleChange}

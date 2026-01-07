@@ -3,6 +3,7 @@ public class Veiling
 {
     public int VeilingID { get; set; }
     public float? VerkoopPrijs { get; set; }
+    public int Aantal { get; set; } // New field for quantity bought
     public DateTime StartDatumTijd { get; set; }
 
     public TimeSpan? EindTijd { get; set; }
@@ -12,7 +13,5 @@ public class Veiling
     public string? VerkoperID { get; set; }
 
     public string? KoperId { get; set; }
-    public Koper? Koper { get; set; } 
-
+    public Koper? Koper { get; set; }
 }
- 
