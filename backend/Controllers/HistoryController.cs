@@ -94,12 +94,6 @@ namespace backend.Controllers
                 // ---------------------------------------------------------
                 // Step 2: Query 1 (Specific Supplier History)
                 // ---------------------------------------------------------
-                // We fetch records and average in one go or separate queries. 
-                // For clarity and separation, we'll do records then average, 
-                // but optimized T-SQL could do multiple result sets. 
-                // Here we stick to clean separate commands using the same connection.
-
-                // Clear parameters for next query
                 command.Parameters.Clear();
 
                 // Add parameters for Name and Supplier
@@ -130,8 +124,8 @@ namespace backend.Controllers
                         response.SupplierHistory.Records.Add(new PriceRecordDto
                         {
                             Date = reader.GetDateTime(0),
-                            // SQL float maps to C# double
-                            Price = reader.GetDouble(1)
+                            // FIX: Use Convert.ToDouble to handle SQL 'real' (float) vs 'float' (double)
+                            Price = Convert.ToDouble(reader.GetValue(1))
                         });
                     }
                 }
@@ -156,7 +150,6 @@ namespace backend.Controllers
                 // ---------------------------------------------------------
 
                 // A. Get Last 10 Records (Market)
-                // Note: We reuse @naam, but don't need @supplier
                 command.CommandText = @"
                     SELECT TOP 10 v.StartDatumTijd, v.VerkoopPrijs, v.VerkoperID
                     FROM Veilingen v
@@ -172,7 +165,8 @@ namespace backend.Controllers
                         response.MarketHistory.Records.Add(new MarketPriceRecordDto
                         {
                             Date = reader.GetDateTime(0),
-                            Price = reader.GetDouble(1),
+                            // FIX: Use Convert.ToDouble here as well
+                            Price = Convert.ToDouble(reader.GetValue(1)),
                             SellerId = reader.IsDBNull(2) ? "Unknown" : reader.GetString(2)
                         });
                     }
@@ -196,13 +190,10 @@ namespace backend.Controllers
             }
             catch (Exception ex)
             {
-                // In production, log this exception
                 return StatusCode(500, new { message = "Error fetching history", error = ex.Message });
             }
             finally
             {
-                // Connection is closed automatically by 'using', 
-                // but good practice to ensure if opened manually.
                 if (connection.State == ConnectionState.Open)
                     await connection.CloseAsync();
             }

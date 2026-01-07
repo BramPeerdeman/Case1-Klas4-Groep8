@@ -361,3 +361,78 @@ export default function Klok() {
             {loadingHistory ? (
                 <Box display="flex" justifyContent="center" p={4}>
                     <CircularProgress />
+                </Box>
+            ) : historyData ? (
+                <Grid container spacing={4}>
+                    {/* Left Column: Supplier History */}
+                    <Grid size={{ xs: 12, md: 6 }}>
+                        <Typography variant="h6" gutterBottom color="primary">
+                            Deze aanbieder (Laatste 10)
+                        </Typography>
+                        <Alert severity="info" sx={{ mb: 2 }}>
+                            Gemiddelde: € {historyData.supplierHistory.averagePrice?.toFixed(2) || "-"}
+                        </Alert>
+                        <List dense sx={{ bgcolor: 'background.paper' }}>
+                            {historyData.supplierHistory.records.length > 0 ? (
+                                historyData.supplierHistory.records.map((rec, i) => (
+                                    <div key={i}>
+                                        <ListItem>
+                                            <ListItemText 
+                                                primary={`€ ${rec.price.toFixed(2)}`}
+                                                secondary={new Date(rec.date).toLocaleString()}
+                                            />
+                                        </ListItem>
+                                        <Divider component="li" />
+                                    </div>
+                                ))
+                            ) : (
+                                <ListItem><ListItemText primary="Geen historie gevonden." /></ListItem>
+                            )}
+                        </List>
+                    </Grid>
+
+                    {/* Right Column: Market History */}
+                    <Grid size={{ xs: 12, md: 6 }}>
+                        <Typography variant="h6" gutterBottom color="secondary">
+                            Markt Totaal (Laatste 10)
+                        </Typography>
+                        <Alert severity="warning" sx={{ mb: 2 }}>
+                            Marktgemiddelde: € {historyData.marketHistory.averagePrice?.toFixed(2) || "-"}
+                        </Alert>
+                        <List dense sx={{ bgcolor: 'background.paper' }}>
+                            {historyData.marketHistory.records.length > 0 ? (
+                                historyData.marketHistory.records.map((rec, i) => (
+                                    <div key={i}>
+                                        <ListItem>
+                                            <ListItemText 
+                                                primary={`€ ${rec.price.toFixed(2)}`}
+                                                secondary={
+                                                    <>
+                                                        {new Date(rec.date).toLocaleString()} <br/>
+                                                        <Typography variant="caption" component="span">
+                                                            Verkoper: {rec.sellerId || "Onbekend"}
+                                                        </Typography>
+                                                    </>
+                                                }
+                                            />
+                                        </ListItem>
+                                        <Divider component="li" />
+                                    </div>
+                                ))
+                            ) : (
+                                <ListItem><ListItemText primary="Geen markthistorie gevonden." /></ListItem>
+                            )}
+                        </List>
+                    </Grid>
+                </Grid>
+            ) : (
+                <Typography color="error">Kan historie niet laden.</Typography>
+            )}
+        </DialogContent>
+        <DialogActions>
+            <Button onClick={handleCloseHistory}>Sluiten</Button>
+        </DialogActions>
+      </Dialog>
+    </Container>
+  );
+}
