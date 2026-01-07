@@ -119,6 +119,16 @@ namespace backend.Controllers
             if (product == null)
                 return NotFound();
 
+            // FIX: If trying to ACTIVATE (price > 0), check the date
+            if (newPrice > 0)
+            {
+                var today = DateTime.Today;
+                if (!product.BeginDatum.HasValue || product.BeginDatum.Value.Date != today)
+                {
+                    return BadRequest($"Dit product kan niet geactiveerd worden. De startdatum is {product.BeginDatum?.ToShortDateString() ?? "onbekend"}, maar het is vandaag {today.ToShortDateString()}.");
+                }
+            }
+
             // FIX: If 0 is sent, reset to null so it goes back to 'Onveilbare' list
             if (newPrice == 0)
             {
@@ -143,7 +153,7 @@ namespace backend.Controllers
                 .ToListAsync();
 
             if (ProductenZonderStartprijs == null || ProductenZonderStartprijs.Count == 0)
-                return Ok(new List<Product>()); // Return empty list instead of 404 for cleaner frontend
+                return Ok(new List<Product>());
 
             return Ok(ProductenZonderStartprijs);
         }
@@ -151,6 +161,7 @@ namespace backend.Controllers
         [HttpGet("product/veilbarelijst")]
         public async Task<IActionResult> GetAuctionableProducts()
         {
+            // This now uses the Service which correctly filters by Today
             var veilbareProducten = await _productService.GetAuctionableProductsAsync();
 
             if (veilbareProducten == null || veilbareProducten.Count == 0)

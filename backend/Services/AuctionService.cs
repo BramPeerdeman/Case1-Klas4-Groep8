@@ -15,7 +15,7 @@ namespace backend.Services
 
         // IN-MEMORY STATUS
         private List<AuctionState> _activeAuctions = new List<AuctionState>();
-        private List<int> _productQueue = new List<int>(); // Changed to List for easy removal
+        private List<int> _productQueue = new List<int>();
         private bool _isQueueRunning = false;
 
         public AuctionService(IServiceScopeFactory scopeFactory, IHubContext<AuctionHub> hub)
@@ -26,13 +26,27 @@ namespace backend.Services
 
         public void AddToQueue(List<int> productIds)
         {
-            foreach (var id in productIds)
+            // VALIDATION: Only allow products scheduled for today
+            using (var scope = _scopeFactory.CreateScope())
             {
-                if (!_productQueue.Contains(id)) _productQueue.Add(id);
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var today = DateTime.Today;
+
+                var validIds = context.Producten
+                    .Where(p => productIds.Contains(p.ProductID) &&
+                                p.BeginDatum.HasValue &&
+                                p.BeginDatum.Value.Date == today)
+                    .Select(p => p.ProductID)
+                    .ToList();
+
+                foreach (var id in validIds)
+                {
+                    if (!_productQueue.Contains(id)) _productQueue.Add(id);
+                }
             }
         }
 
-        // --- NEW: Remove from Queue ---
+        // --- Remove from Queue ---
         public void RemoveFromQueue(int productId)
         {
             if (_productQueue.Contains(productId))
@@ -58,7 +72,6 @@ namespace backend.Services
 
             if (_productQueue.Count > 0)
             {
-                // Logic updated for List instead of Queue
                 int nextId = _productQueue[0];
                 _productQueue.RemoveAt(0);
                 await StartAuctionAsync(nextId);
