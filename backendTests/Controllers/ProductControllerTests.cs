@@ -1,4 +1,4 @@
-﻿using backend.Controllers;
+using backend.Controllers;
 using backend.Data;
 using backend.DTOs; // <--- Belangrijk voor de nieuwe input
 using backend.interfaces;
@@ -73,11 +73,7 @@ namespace backend.Controllers.Tests
                 Beschrijving = "Een prachtige antieke vaas",
                 MinPrijs = 50,
                 Aantal = 1,
-                // VerkoperID sturen we niet mee, dat haalt de controller uit de User (die we hier niet mocken, maar dat mag in unit tests soms genegeerd worden of vergt meer setup)
-                // Voor deze test simuleren we vooral de input.
-                // Let op: Omdat we de User claim niet mocken in deze simpele test, 
-                // zal de controller waarschijnlijk crashen op 'User.FindFirstValue' of Unauthorized geven
-                // als we de HttpContext niet instellen.
+                // VerkoperID sturen we niet mee, dat haalt de controller uit de User
             };
 
             // FIX VOOR USER CONTEXT:
@@ -93,7 +89,6 @@ namespace backend.Controllers.Tests
             {
                 HttpContext = new Microsoft.AspNetCore.Http.DefaultHttpContext { User = claimsPrincipal }
             };
-
 
             // Act
             var result = await controller.CreateProduct(newProductDto);
@@ -131,10 +126,6 @@ namespace backend.Controllers.Tests
             // Assert
             Assert.IsType<BadRequestObjectResult>(result);
         }
-
-        // -------------------------------------------------------------------
-        // OTHER PRODUCT TESTS
-        // -------------------------------------------------------------------
 
         [Fact]
         public async Task GetUnassignedProducts_ReturnsOnlyProductsWithoutStartPrijs()

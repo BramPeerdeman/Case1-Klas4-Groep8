@@ -23,6 +23,7 @@ public class Product
     public bool IsAuctionable { get; set; } = false;
 
     public float? Eindprijs { get; set; }
+    public string? KoperID { get; set; }
 
     // Relatie naar Veiler
     public string? VerkoperID { get; set; }

@@ -23,6 +23,7 @@ import Detail from "./Pages/Detail";
 import { NotificationProvider } from "./Contexts/NotificationContext";
 import { useAuth } from "./Contexts/AuthContext";
 import MyProducts from "./Pages/MyProducts";
+import MijnAankopen from "./Pages/MijnAankopen";
 
 // Build theme dynamically from UiSettings
 function ThemedRoutes() {
@@ -45,6 +46,7 @@ function ThemedRoutes() {
           <Route path="/settings" element={<Settings />} />
           <Route path="/product/:id" element={<Detail />} />
           <Route path="/verkoper/producten" element={<ProtectedRoute requiredRole="veiler"><MyProducts /></ProtectedRoute>} />
+          <Route path="/mijn-aankopen" element={<MijnAankopen />} />
         </Route>
 
         <Route element={<AuthLayout />}>

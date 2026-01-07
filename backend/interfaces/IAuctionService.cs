@@ -13,7 +13,7 @@ namespace backend.interfaces
 
         Task StartAuctionAsync(int productId);
         AuctionState GetStatus(int productId);
-        Task<bool> PlaatsBod(int productId, string koperNaam, decimal bedrag);
+        Task<bool> PlaatsBod(int productId, string koperNaam, decimal bedrag, string koperId);
 
         Task CreateQueueAsync();
         Task StartnextAuctionAsync();

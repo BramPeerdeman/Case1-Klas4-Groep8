@@ -1,4 +1,4 @@
-﻿using backend.Data;
+using backend.Data;
 using backend.interfaces;
 using backend.Models;
 using backend.Hubs;
@@ -119,35 +119,50 @@ namespace backend.Services
             return auction ?? new AuctionState { ProductId = productId, IsRunning = false };
         }
 
-        public async Task<bool> PlaatsBod(int productId, string koperNaam, decimal bedrag)
+        public async Task<bool> PlaatsBod(int productId, string koperNaam, decimal bedrag, string koperId)
         {
             var auction = _activeAuctions.FirstOrDefault(a => a.ProductId == productId);
             if (auction == null || !auction.IsRunning || auction.IsSold) return false;
 
+            // 1. Update Status in geheugen
             auction.IsRunning = false;
             auction.IsSold = true;
             auction.BuyerName = koperNaam;
             auction.FinalPrice = bedrag;
 
+            // 2. Database Opslaan
             using (var scope = _scopeFactory.CreateScope())
             {
                 var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+                // Veiling loggen
                 var veiling = new Veiling
                 {
                     ProductID = productId,
                     VerkoopPrijs = (float)bedrag,
                     StartDatumTijd = auction.StartTime,
                     EindTijd = DateTime.Now - auction.StartTime,
-                    VerkoperID = 0
+                    VerkoperID = "0", // Default of ophalen uit product
+                    KoperId = koperId // Opslaan als string
                 };
                 context.Veilingen.Add(veiling);
 
+                // Product updaten
                 var prod = await context.Producten.FindAsync(productId);
-                if (prod != null) prod.IsAuctionable = false;
+                
+                // --- DEZE IF-CHECK IS CRUCIAAL ---
+                if (prod != null) 
+                {
+                    prod.IsAuctionable = false;       // Niet meer veilbaar
+                    prod.KoperID = koperId;           // Koppel de koper
+                    prod.EindDatum = DateTime.Now;    // Tijdstip van verkoop
+                    prod.Eindprijs = (float)bedrag;   // Prijs opslaan
+                }
 
                 await context.SaveChangesAsync();
             }
 
+            // 3. SignalR Update (Live scherm)
             await _hub.Clients.All.SendAsync("ReceiveAuctionResult", new
             {
                 productId = productId,
@@ -156,11 +171,12 @@ namespace backend.Services
                 price = bedrag
             });
 
+            // 4. Auto-Play Logica
             if (_isQueueRunning)
             {
                 _ = Task.Run(async () =>
                 {
-                    await Task.Delay(10000);
+                    await Task.Delay(10000); 
                     await StartNextInQueue();
                 });
             }

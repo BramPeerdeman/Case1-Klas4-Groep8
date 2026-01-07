@@ -14,6 +14,7 @@ interface AuthContextType {
   isLoggedIn: boolean;
   isAdmin: boolean;
   isVeiler: boolean;
+  isKoper?: boolean;
   isLoading: boolean;
   user: DecodedToken | null;
   login: (token: string) => void;
@@ -26,6 +27,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isVeiler, setIsVeiler] = useState(false);
+  const [isKoper, setIsKoper] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [user, setUser] = useState<DecodedToken | null>(null);
   const { setUiSettings } = useUser();
@@ -51,6 +53,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       setIsAdmin(hasRole("admin"));
       setIsVeiler(hasRole("veiler"));
+      setIsKoper(hasRole("koper"));
     } catch (err) {
       console.error("Failed to decode token:", err);
       logout();
@@ -81,12 +84,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setIsLoggedIn(false);
     setIsAdmin(false);
     setIsVeiler(false);
+    setIsKoper(false);
     setUser(null);
     setUiSettings({ theme: "light", highContrast: false, fontSize: 16 });
   };
 
   return (
-    <AuthContext.Provider value={{ isLoggedIn, isAdmin, isVeiler, isLoading, user, login, logout }}>
+    <AuthContext.Provider value={{ isLoggedIn, isAdmin, isVeiler,isKoper, isLoading, user, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
