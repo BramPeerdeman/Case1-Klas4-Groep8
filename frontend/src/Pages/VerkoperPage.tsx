@@ -240,6 +240,7 @@ export default function VerkoperPage() {
               value={formData.beginDatum}
               onChange={handleChange}
               fullWidth
+              required
               slotProps={{
                 inputLabel: { shrink: true },
               }}
