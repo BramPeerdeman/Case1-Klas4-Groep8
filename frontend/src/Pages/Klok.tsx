@@ -4,6 +4,8 @@ import { useEffect, useState, useRef } from "react";
 import * as signalR from "@microsoft/signalr";
 import { useAuth } from "../Contexts/AuthContext";
 
+import { getImageUrl } from "../Utils/ImageUtils";
+
 export default function Klok() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -200,7 +202,7 @@ export default function Klok() {
                     <CardMedia
                         component="img"
                         height="400"
-                        image={product.imageUrl}
+                        image={getImageUrl(product.imageUrl)}
                         alt={product.naam}
                         sx={{ objectFit: "contain", p: 2, bgcolor: "#f5f5f5" }}
                     />
