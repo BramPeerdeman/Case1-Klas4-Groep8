@@ -18,7 +18,9 @@ namespace backend.interfaces
         Task CreateQueueAsync();
         Task StartnextAuctionAsync();
 
-        // --- NEW METHOD ---
         Task ForceNextAsync();
+
+        // --- NEW: Method to remove item from queue ---
+        void RemoveFromQueue(int productId);
     }
 }
