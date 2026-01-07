@@ -26,7 +26,6 @@ namespace backend.Controllers
             _auctionService = auctionService;
         }
 
-        // 1. START VEILING (DIT IS DE FIX: Naam is nu 'StartVeiling')
         [HttpPost("start/{id}")]
         [Authorize(Roles = "admin")]
         public async Task<IActionResult> StartVeiling(int id)
@@ -43,7 +42,6 @@ namespace backend.Controllers
             return Ok(active);
         }
 
-        // 2. QUEUE: Toevoegen
         [HttpPost("queue/add")]
         [Authorize(Roles = "admin")]
         public IActionResult AddToQueue([FromBody] List<int> productIds)
@@ -52,7 +50,15 @@ namespace backend.Controllers
             return Ok(new { message = "Toegevoegd aan wachtrij" });
         }
 
-        // 3. QUEUE: Starten
+        // --- NEW: Endpoint to remove from queue ---
+        [HttpPost("queue/remove/{id}")]
+        [Authorize(Roles = "admin")]
+        public IActionResult RemoveFromQueue(int id)
+        {
+            _auctionService.RemoveFromQueue(id);
+            return Ok(new { message = "Verwijderd uit wachtrij." });
+        }
+
         [HttpPost("queue/start")]
         [Authorize(Roles = "admin")]
         public async Task<IActionResult> StartQueue()
@@ -61,7 +67,6 @@ namespace backend.Controllers
             return Ok(new { message = "Queue gestart!" });
         }
 
-        // --- NEW ENDPOINT: FORCE NEXT ---
         [HttpPost("force-next")]
         [Authorize(Roles = "admin")]
         public async Task<IActionResult> ForceNext()
@@ -70,7 +75,6 @@ namespace backend.Controllers
             return Ok(new { message = "Volgende item geforceerd." });
         }
 
-        // 4. BOD: Kopen
         [HttpPost("koop")]
         public async Task<IActionResult> Koop([FromBody] KoopRequest request)
         {
@@ -79,7 +83,6 @@ namespace backend.Controllers
             return BadRequest(new { message = "Te laat!" });
         }
 
-        // 5. STATUS: Ophalen
         [HttpGet("status/{id}")]
         public IActionResult GetStatus(int id)
         {
@@ -87,7 +90,6 @@ namespace backend.Controllers
             return Ok(status);
         }
 
-        // Oude methode voor backward compatibility (mag blijven of weg)
         [Authorize(Roles = "admin")]
         [HttpPost("sync-veilbaar")]
         public async Task<IActionResult> SyncVeilBareProducten()

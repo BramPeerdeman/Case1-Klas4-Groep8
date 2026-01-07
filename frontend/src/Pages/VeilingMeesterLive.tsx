@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { 
   Container, Box, Typography, Card, CardContent, Button, 
-  Grid, Divider, Chip, Paper, CircularProgress
+  Grid, Divider, Chip, Paper
 } from "@mui/material";
 import * as signalR from "@microsoft/signalr";
 import StopCircleIcon from '@mui/icons-material/StopCircle';
@@ -10,7 +10,6 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { useNavigate } from "react-router-dom";
 import { useNotification } from "../Contexts/NotificationContext";
 
-// Types
 interface CurrentAuctionItem {
   id: number;
   productNaam: string;
@@ -22,19 +21,16 @@ export default function VeilingMeesterLive() {
   const navigate = useNavigate();
   const { notify } = useNotification();
   
-  // State
   const [connection, setConnection] = useState<signalR.HubConnection | null>(null);
   const [currentPrice, setCurrentPrice] = useState<number>(0);
   const [currentItem, setCurrentItem] = useState<CurrentAuctionItem | null>(null);
   const [status, setStatus] = useState<"WAITING" | "RUNNING" | "SOLD" | "TIMEOUT">("WAITING");
   const [buyerName, setBuyerName] = useState<string>("");
 
-  // Refs for timer logic
   const timerRef = useRef<number | null>(null);
-  const dropDuration = 30000; // 30 seconds
+  const dropDuration = 30000; 
   const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5299';
 
-  // 1. SIGNALR CONNECTION
   useEffect(() => {
     const newConnection = new signalR.HubConnectionBuilder()
       .withUrl(`${baseUrl}/AuctionHub`)
@@ -68,7 +64,7 @@ export default function VeilingMeesterLive() {
     };
   }, []);
 
-  // --- FIX 1: RACE CONDITION CHECK ---
+  // Check for active auction on load
   useEffect(() => {
     const checkActiveAuction = async () => {
         try {
@@ -77,7 +73,6 @@ export default function VeilingMeesterLive() {
                 const auctionState = await res.json();
                 
                 if (auctionState.isRunning) {
-                    console.log("Found active auction:", auctionState);
                     const productDetails = await fetchProductDetails(auctionState.productId);
                     
                     if (productDetails) {
@@ -94,7 +89,7 @@ export default function VeilingMeesterLive() {
                 }
             }
         } catch (error) {
-            console.log("No active auction found or error fetching.");
+            console.log("No active auction found.");
         }
     };
 
@@ -105,7 +100,6 @@ export default function VeilingMeesterLive() {
     if (!connection) return;
 
     connection.on("ReceiveNewAuction", async (data: any) => {
-        console.log("Nieuwe veiling gestart (Event):", data);
         stopClock(); 
 
         const productDetails = await fetchProductDetails(data.productId);
@@ -125,7 +119,6 @@ export default function VeilingMeesterLive() {
     });
 
     connection.on("ReceiveAuctionResult", (data: any) => {
-        console.log("Veiling resultaat:", data);
         stopClock();
         setStatus("SOLD");
         setCurrentPrice(data.price);
@@ -158,9 +151,8 @@ export default function VeilingMeesterLive() {
           const now = Date.now();
           const elapsed = now - startTime;
 
-          // --- FIX 2: CLAMP PRICE TO MINIMUM TO PREVENT GLITCHES ---
           if (elapsed >= dropDuration) {
-              setCurrentPrice(minPrice); // Explicitly snap to bottom
+              setCurrentPrice(minPrice); // Snap to minimum
               setStatus("TIMEOUT");
               stopClock();
           } else {
@@ -184,7 +176,7 @@ export default function VeilingMeesterLive() {
       notify("Noodstop functionaliteit moet nog geïmplementeerd worden in backend", "warning");
   };
 
-  // --- FIX 3: WIRED UP FORCE NEXT BUTTON ---
+  // --- UPDATED: FORCE NEXT ---
   const handleForceNext = async () => {
       if(!confirm("Weet je zeker dat je dit item wilt overslaan?")) return;
 

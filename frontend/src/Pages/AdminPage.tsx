@@ -34,12 +34,14 @@ export default function AdminPage() {
   const fetchAllData = async () => {
     const token = localStorage.getItem("token");
     try {
+      // 1. Nieuwe producten
       const resNew = await fetch(`${baseUrl}/api/Product/product/onveilbarelist`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (resNew.ok) setNewProducts(await resNew.json());
       else setNewProducts([]);
 
+      // 2. Veilbare producten
       const resVeilbaar = await fetch(`${baseUrl}/api/Product/product/veilbarelijst`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -89,25 +91,34 @@ export default function AdminPage() {
     }
   };
 
-  // --- NEW: REMOVE FROM QUEUE (RESET PRICE TO 0) ---
+  // --- UPDATED: REMOVE FROM QUEUE & DB ---
   const handleRemoveFromQueue = async (product: Product) => {
     if(!confirm(`Weet je zeker dat je ${product.naam} uit de lijst wilt halen?`)) return;
 
     try {
         const token = localStorage.getItem("token");
+
+        // 1. Reset Price in Database (Moves it back to 'New Products')
         await fetch(`${baseUrl}/api/Product/product/${product.productID}/veranderprijs`, {
           method: 'PUT',
           headers: { 
               'Content-Type': 'application/json',
               'Authorization': `Bearer ${token}` 
           },
-          body: JSON.stringify(0) // Reset to 0
+          body: JSON.stringify(0) 
+        });
+
+        // 2. Remove from Active Queue in Backend (if it's there)
+        await fetch(`${baseUrl}/api/Veiling/queue/remove/${product.productID}`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}` }
         });
         
         notify("Product verwijderd uit veilbare lijst.", "info");
-        fetchAllData(); // Refresh tables
+        fetchAllData(); 
 
     } catch (e) {
+        console.error(e);
         notify("Fout bij verwijderen.", "error");
     }
   };
@@ -126,6 +137,7 @@ export default function AdminPage() {
     try {
         const token = localStorage.getItem("token");
         
+        // 1. Add selected IDs to queue
         await fetch(`${baseUrl}/api/Veiling/queue/add`, {
             method: 'POST',
             headers: { 
@@ -135,6 +147,7 @@ export default function AdminPage() {
             body: JSON.stringify(selectedIds)
         });
 
+        // 2. Start Queue
         await fetch(`${baseUrl}/api/Veiling/queue/start`, {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${token}` }
@@ -170,6 +183,7 @@ export default function AdminPage() {
         </Box>
       </Box>
       
+      {/* --- TABLE 1: NEW PRODUCTS --- */}
       <Paper sx={{ p: 2, mb: 4, bgcolor: '#fff8e1' }}>
         <Typography variant="h6" gutterBottom color="orange">
             Nieuwe Aanmeldingen (Bepaal Startprijs)
@@ -227,6 +241,7 @@ export default function AdminPage() {
 
       <Divider sx={{ my: 4 }} />
 
+      {/* --- TABLE 2: AUCTIONABLE PRODUCTS --- */}
       <Paper sx={{ p: 2, bgcolor: '#e8f5e9' }}>
         <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
             <Typography variant="h6" color="green">
@@ -242,7 +257,7 @@ export default function AdminPage() {
         </Box>
 
         {veilbareProducts.length === 0 ? (
-            <Typography variant="body2" color="text.secondary">Nog geen producten geactiveerd. Doe dit hierboven eerst.</Typography>
+            <Typography variant="body2" color="text.secondary">Nog geen producten geactiveerd.</Typography>
         ) : (
             <TableContainer component={Paper} elevation={0}>
             <Table>
@@ -258,7 +273,7 @@ export default function AdminPage() {
                     <TableCell>Product</TableCell>
                     <TableCell>Startprijs</TableCell>
                     <TableCell>Status</TableCell>
-                    <TableCell>Actie</TableCell> {/* Added Column */}
+                    <TableCell>Actie</TableCell>
                 </TableRow>
                 </TableHead>
                 <TableBody>
@@ -277,7 +292,6 @@ export default function AdminPage() {
                     <TableCell sx={{ fontWeight: 'bold' }}>€ {p.startPrijs}</TableCell>
                     <TableCell><Chip label="Klaar" color="success" size="small" /></TableCell>
                     <TableCell>
-                        {/* New Delete Button */}
                         <Button 
                             color="error" 
                             size="small"

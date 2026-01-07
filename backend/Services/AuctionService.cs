@@ -15,7 +15,7 @@ namespace backend.Services
 
         // IN-MEMORY STATUS
         private List<AuctionState> _activeAuctions = new List<AuctionState>();
-        private Queue<int> _productQueue = new Queue<int>();
+        private List<int> _productQueue = new List<int>(); // Changed to List for easy removal
         private bool _isQueueRunning = false;
 
         public AuctionService(IServiceScopeFactory scopeFactory, IHubContext<AuctionHub> hub)
@@ -28,17 +28,24 @@ namespace backend.Services
         {
             foreach (var id in productIds)
             {
-                if (!_productQueue.Contains(id)) _productQueue.Enqueue(id);
+                if (!_productQueue.Contains(id)) _productQueue.Add(id);
+            }
+        }
+
+        // --- NEW: Remove from Queue ---
+        public void RemoveFromQueue(int productId)
+        {
+            if (_productQueue.Contains(productId))
+            {
+                _productQueue.Remove(productId);
             }
         }
 
         public AuctionState? GetActiveAuction()
         {
-            // Zoek de eerste veiling die 'Running' is
             return _activeAuctions.FirstOrDefault(a => a.IsRunning);
         }
 
-        // QUEUE STARTEN
         public async Task StartQueueAsync()
         {
             _isQueueRunning = true;
@@ -51,13 +58,14 @@ namespace backend.Services
 
             if (_productQueue.Count > 0)
             {
-                int nextId = _productQueue.Dequeue();
+                // Logic updated for List instead of Queue
+                int nextId = _productQueue[0];
+                _productQueue.RemoveAt(0);
                 await StartAuctionAsync(nextId);
             }
             else
             {
                 _isQueueRunning = false;
-                // Optional: Notify frontend queue is empty
             }
         }
 
@@ -76,7 +84,6 @@ namespace backend.Services
             auction.BuyerName = null;
             auction.FinalPrice = 0;
 
-            // Startprijs ophalen
             decimal startPrijs = 0;
             using (var scope = _scopeFactory.CreateScope())
             {
@@ -85,7 +92,6 @@ namespace backend.Services
                 if (product != null) startPrijs = (decimal)product.StartPrijs;
             }
 
-            // SIGNALR BROADCAST
             await _hub.Clients.All.SendAsync("ReceiveNewAuction", new
             {
                 productId = productId,
@@ -105,13 +111,11 @@ namespace backend.Services
             var auction = _activeAuctions.FirstOrDefault(a => a.ProductId == productId);
             if (auction == null || !auction.IsRunning || auction.IsSold) return false;
 
-            // Update Status
             auction.IsRunning = false;
             auction.IsSold = true;
             auction.BuyerName = koperNaam;
             auction.FinalPrice = bedrag;
 
-            // Database Opslaan
             using (var scope = _scopeFactory.CreateScope())
             {
                 var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -131,7 +135,6 @@ namespace backend.Services
                 await context.SaveChangesAsync();
             }
 
-            // SignalR Update
             await _hub.Clients.All.SendAsync("ReceiveAuctionResult", new
             {
                 productId = productId,
@@ -140,13 +143,11 @@ namespace backend.Services
                 price = bedrag
             });
 
-            // --- AUTO PLAY LOGICA ---
             if (_isQueueRunning)
             {
-                // Start een taak die 10 seconden wacht en dan de volgende pakt
                 _ = Task.Run(async () =>
                 {
-                    await Task.Delay(10000); // 10 seconden pauze om de winnaar te feliciteren
+                    await Task.Delay(10000);
                     await StartNextInQueue();
                 });
             }
@@ -154,22 +155,14 @@ namespace backend.Services
             return true;
         }
 
-        // --- NEW IMPLEMENTATION: FORCE NEXT ---
         public async Task ForceNextAsync()
         {
-            // 1. Stop current auction if running
             var active = _activeAuctions.FirstOrDefault(a => a.IsRunning);
             if (active != null)
             {
                 active.IsRunning = false;
-                // We do not save a 'Veiling' record because it wasn't sold.
-                // It simply stops being "Active".
             }
-
-            // 2. Ensure queue is marked running so it picks up the next one
             _isQueueRunning = true;
-
-            // 3. Immediately trigger next
             await StartNextInQueue();
         }
 
