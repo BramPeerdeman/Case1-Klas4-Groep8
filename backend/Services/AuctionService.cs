@@ -100,59 +100,71 @@ namespace backend.Services
             return auction ?? new AuctionState { ProductId = productId, IsRunning = false };
         }
 
-        public async Task<bool> PlaatsBod(int productId, string koperNaam, decimal bedrag)
+        public async Task<bool> PlaatsBod(int productId, string koperNaam, decimal bedrag, string koperId)
+    {
+        var auction = _activeAuctions.FirstOrDefault(a => a.ProductId == productId);
+        if (auction == null || !auction.IsRunning || auction.IsSold) return false;
+
+        // 1. Update Status in geheugen
+        auction.IsRunning = false;
+        auction.IsSold = true;
+        auction.BuyerName = koperNaam;
+        auction.FinalPrice = bedrag;
+
+        // 2. Database Opslaan
+        using (var scope = _scopeFactory.CreateScope())
         {
-            var auction = _activeAuctions.FirstOrDefault(a => a.ProductId == productId);
-            if (auction == null || !auction.IsRunning || auction.IsSold) return false;
+            var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-            // Update Status
-            auction.IsRunning = false;
-            auction.IsSold = true;
-            auction.BuyerName = koperNaam;
-            auction.FinalPrice = bedrag;
-
-            // Database Opslaan
-            using (var scope = _scopeFactory.CreateScope())
+            // Veiling loggen
+            var veiling = new Veiling
             {
-                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-                var veiling = new Veiling
-                {
-                    ProductID = productId,
-                    VerkoopPrijs = (float)bedrag,
-                    StartDatumTijd = auction.StartTime,
-                    EindTijd = DateTime.Now - auction.StartTime,
-                    VerkoperID = 0
-                };
-                context.Veilingen.Add(veiling);
+                ProductID = productId,
+                VerkoopPrijs = (float)bedrag,
+                StartDatumTijd = auction.StartTime,
+                EindTijd = DateTime.Now - auction.StartTime,
+                VerkoperID = 0,
+                KoperId = koperId // Opslaan als string
+            };
+            context.Veilingen.Add(veiling);
 
-                var prod = await context.Producten.FindAsync(productId);
-                if (prod != null) prod.IsAuctionable = false;
-
-                await context.SaveChangesAsync();
+            // Product updaten
+            var prod = await context.Producten.FindAsync(productId);
+            
+            // --- DEZE IF-CHECK IS CRUCIAAL ---
+            if (prod != null) 
+            {
+                prod.IsAuctionable = false;       // Niet meer veilbaar
+                prod.KoperID = koperId;           // Koppel de koper
+                prod.EindDatum = DateTime.Now;    // Tijdstip van verkoop
+                prod.Eindprijs = (float)bedrag;   // Prijs opslaan
             }
+            // ---------------------------------
 
-            // SignalR Update
-            await _hub.Clients.All.SendAsync("ReceiveAuctionResult", new
-            {
-                productId = productId,
-                sold = true,
-                buyer = koperNaam,
-                price = bedrag
-            });
-
-            // --- AUTO PLAY LOGICA ---
-            if (_isQueueRunning)
-            {
-                // Start een taak die 10 seconden wacht en dan de volgende pakt
-                _ = Task.Run(async () =>
-                {
-                    await Task.Delay(10000); // 10 seconden pauze om de winnaar te feliciteren
-                    await StartNextInQueue();
-                });
-            }
-
-            return true;
+            await context.SaveChangesAsync();
         }
+
+        // 3. SignalR Update (Live scherm)
+        await _hub.Clients.All.SendAsync("ReceiveAuctionResult", new
+        {
+            productId = productId,
+            sold = true,
+            buyer = koperNaam,
+            price = bedrag
+        });
+
+        // 4. Auto-Play Logica
+        if (_isQueueRunning)
+        {
+            _ = Task.Run(async () =>
+            {
+                await Task.Delay(10000); 
+                await StartNextInQueue();
+            });
+        }
+
+        return true;
+    }
 
         // --- NEW IMPLEMENTATION: FORCE NEXT ---
         public async Task ForceNextAsync()

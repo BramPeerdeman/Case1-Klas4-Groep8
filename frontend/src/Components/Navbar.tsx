@@ -14,7 +14,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../Contexts/AuthContext";
 
 export default function Navbar() {
-  const { isLoggedIn, logout, isAdmin, isVeiler } = useAuth();
+  const { isLoggedIn, logout, isAdmin, isVeiler, isKoper } = useAuth();
   const navigate = useNavigate();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
 
@@ -88,7 +88,20 @@ export default function Navbar() {
           >
             Contact
           </Button>
-
+          {isLoggedIn && isKoper && (
+            <Button
+              color="inherit"
+              component={Link}
+              to="/mijn-aankopen"
+              sx={{
+                fontWeight: "bold",
+                color: "cyan", // Een opvallend kleurtje voor de koper
+                "&:focus": { outline: "2px solid #fff", outlineOffset: "2px" },
+              }}
+            >
+              Mijn Aankopen
+            </Button>
+          )}
           {/* Admin only button */}
           {isAdmin && (
             <Button

@@ -181,5 +181,45 @@ namespace backend.Controllers
 
             return Ok(myProducts);
         }
+        [HttpGet("geschiedenis")]
+        [Authorize]
+        public async Task<IActionResult> GetAankoopGeschiedenis()
+        {
+            Console.WriteLine("--- DEBUG: Geschiedenis wordt opgevraagd ---");
+
+            // 1. Probeer ID te vinden (Robuuste check)
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrEmpty(userId))
+            {
+                Console.WriteLine("DEBUG: Geen NameIdentifier gevonden. Ik zoek naar 'sub'...");
+                userId = User.FindFirst("sub")?.Value;
+            }
+
+            if (string.IsNullOrEmpty(userId))
+            {
+                Console.WriteLine("DEBUG: Geen 'sub' gevonden. Ik zoek naar 'id'...");
+                userId = User.FindFirst("id")?.Value;
+            }
+
+            // DEBUG: Laat zien wie de server denkt dat je bent
+            Console.WriteLine($"DEBUG: Gevonden UserID in token: '{userId ?? "GEEN"}'");
+
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Unauthorized("De server kan uw User ID niet uit het token lezen.");
+            }
+
+            
+            var gekochteProducten = await _context.Producten
+                .Where(p => p.KoperID == userId)
+                .OrderByDescending(p => p.EindDatum) 
+                .AsNoTracking()
+                .ToListAsync();
+
+            Console.WriteLine($"DEBUG: Aantal producten gevonden in DB voor deze user: {gekochteProducten.Count}");
+
+            return Ok(gekochteProducten);
+        }
     }
 }

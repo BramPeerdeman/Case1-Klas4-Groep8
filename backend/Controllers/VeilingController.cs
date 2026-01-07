@@ -11,7 +11,8 @@ namespace backend.Controllers
     public class KoopRequest
     {
         public int ProductId { get; set; }
-        public string BuyerName { get; set; }
+        public string? BuyerName { get; set; }
+        public string? BuyerId { get; set; }
         public decimal Price { get; set; }
     }
 
@@ -74,7 +75,7 @@ namespace backend.Controllers
         [HttpPost("koop")]
         public async Task<IActionResult> Koop([FromBody] KoopRequest request)
         {
-            bool gelukt = await _auctionService.PlaatsBod(request.ProductId, request.BuyerName, request.Price);
+            bool gelukt = await _auctionService.PlaatsBod(request.ProductId, request.BuyerName, request.Price, request.BuyerId);
             if (gelukt) return Ok(new { message = "Gekocht!" });
             return BadRequest(new { message = "Te laat!" });
         }

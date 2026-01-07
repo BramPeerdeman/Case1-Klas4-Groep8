@@ -30,10 +30,7 @@ namespace backend.Controllers.Tests
             return new Services.ProductService(context);
         }
 
-        // -------------------------------------------------------------------
-        // VEILER SPECIFIC TESTS
-        // -------------------------------------------------------------------
-
+        
         [Fact]
         public void CreateProduct_ShouldBeRestrictedToVeilerRole()
         {
@@ -64,7 +61,7 @@ namespace backend.Controllers.Tests
                 Naam = "Veiling Item 1",
                 Beschrijving = "Een prachtige antieke vaas",
                 StartPrijs = 50,
-                VerkoperID = "1" // Simulating the Veiler's ID
+                VerkoperID = 1 // Simulating the Veiler's ID
             };
 
             // Act
@@ -102,9 +99,7 @@ namespace backend.Controllers.Tests
             Assert.IsType<BadRequestObjectResult>(result);
         }
 
-        // -------------------------------------------------------------------
-        // OTHER PRODUCT TESTS
-        // -------------------------------------------------------------------
+        
 
         [Fact]
         public async Task GetUnassignedProducts_ReturnsOnlyProductsWithoutStartPrijs()
@@ -162,7 +157,7 @@ namespace backend.Controllers.Tests
         public async Task Admin_UpdateProductPrice_Should_Return_NotFound_If_ID_Is_Wrong()
         {
 
-            // We maken een LEGE database (we voegen geen producten toe)
+            
             using var dbContext = GetInMemoryDbContext();
             ProductService productService = GetProductService();
             var controller = new ProductController(dbContext, productService);

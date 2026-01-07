@@ -261,6 +261,9 @@ namespace backend.Migrations
                     b.Property<bool>("IsAuctionable")
                         .HasColumnType("bit");
 
+                    b.Property<string>("KoperID")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("Locatie")
                         .HasColumnType("nvarchar(max)");
 
