@@ -46,7 +46,6 @@ namespace backend.Services
             }
         }
 
-        // --- Remove from Queue ---
         public void RemoveFromQueue(int productId)
         {
             if (_productQueue.Contains(productId))
@@ -119,56 +118,77 @@ namespace backend.Services
             return auction ?? new AuctionState { ProductId = productId, IsRunning = false };
         }
 
-        public async Task<bool> PlaatsBod(int productId, string koperNaam, decimal bedrag, string koperId)
+        // --- UPDATED METHOD ---
+        public async Task<bool> PlaatsBod(int productId, string koperNaam, decimal bedrag, string koperId, int aantal)
         {
             var auction = _activeAuctions.FirstOrDefault(a => a.ProductId == productId);
+
+            // Check if auction is valid in memory
             if (auction == null || !auction.IsRunning || auction.IsSold) return false;
 
-            // 1. Update Status in geheugen
+            // 1. Update Status in memory (Stop the clock immediately to prevent double clicks)
             auction.IsRunning = false;
             auction.IsSold = true;
             auction.BuyerName = koperNaam;
             auction.FinalPrice = bedrag;
 
-            // 2. Database Opslaan
+            // 2. Database Operations
             using (var scope = _scopeFactory.CreateScope())
             {
                 var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+                // Fetch product to check stock
+                var prod = await context.Producten.FindAsync(productId);
+
+                // Validation: Product must exist and have enough stock
+                if (prod == null || prod.Aantal < aantal)
+                {
+                    // Rollback memory state if validation fails
+                    auction.IsRunning = true;
+                    auction.IsSold = false;
+                    return false;
+                }
+
+                // Deduct Stock
+                prod.Aantal -= aantal;
 
                 // Veiling loggen
                 var veiling = new Veiling
                 {
                     ProductID = productId,
                     VerkoopPrijs = (float)bedrag,
+                    Aantal = aantal, // Save the amount bought
                     StartDatumTijd = auction.StartTime,
                     EindTijd = DateTime.Now - auction.StartTime,
-                    VerkoperID = "0", // Default of ophalen uit product
-                    KoperId = koperId // Opslaan als string
+                    VerkoperID = prod.VerkoperID ?? "0",
+                    KoperId = koperId
                 };
                 context.Veilingen.Add(veiling);
 
-                // Product updaten
-                var prod = await context.Producten.FindAsync(productId);
-                
-                // --- DEZE IF-CHECK IS CRUCIAAL ---
-                if (prod != null) 
+                // Update Product status
+                prod.KoperID = koperId;
+                prod.EindDatum = DateTime.Now;
+                prod.Eindprijs = (float)bedrag;
+
+                // If stock is empty, it is no longer auctionable. 
+                // If stock remains, it stays auctionable (for a future run), but this specific run ends.
+                if (prod.Aantal <= 0)
                 {
-                    prod.IsAuctionable = false;       // Niet meer veilbaar
-                    prod.KoperID = koperId;           // Koppel de koper
-                    prod.EindDatum = DateTime.Now;    // Tijdstip van verkoop
-                    prod.Eindprijs = (float)bedrag;   // Prijs opslaan
+                    prod.IsAuctionable = false;
+                    prod.Aantal = 0; // Prevent negative numbers just in case
                 }
 
                 await context.SaveChangesAsync();
             }
 
-            // 3. SignalR Update (Live scherm)
+            // 3. SignalR Update (Live scherm) - Include amount in broadcast
             await _hub.Clients.All.SendAsync("ReceiveAuctionResult", new
             {
                 productId = productId,
                 sold = true,
                 buyer = koperNaam,
-                price = bedrag
+                price = bedrag,
+                amount = aantal // Send amount to frontend
             });
 
             // 4. Auto-Play Logica
@@ -176,7 +196,7 @@ namespace backend.Services
             {
                 _ = Task.Run(async () =>
                 {
-                    await Task.Delay(10000); 
+                    await Task.Delay(10000);
                     await StartNextInQueue();
                 });
             }

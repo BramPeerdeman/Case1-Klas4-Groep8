@@ -13,14 +13,15 @@ namespace backend.interfaces
 
         Task StartAuctionAsync(int productId);
         AuctionState GetStatus(int productId);
-        Task<bool> PlaatsBod(int productId, string koperNaam, decimal bedrag, string koperId);
+
+        // Updated signature to include 'aantal'
+        Task<bool> PlaatsBod(int productId, string koperNaam, decimal bedrag, string koperId, int aantal);
 
         Task CreateQueueAsync();
         Task StartnextAuctionAsync();
 
         Task ForceNextAsync();
 
-        // --- NEW: Method to remove item from queue ---
         void RemoveFromQueue(int productId);
     }
 }
