@@ -12,7 +12,7 @@ using backend.Data;
 namespace backend.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260107145009_InitialCreate")]
+    [Migration("20260107160119_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -245,6 +245,9 @@ namespace backend.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ProductID"));
 
+                    b.Property<int>("Aantal")
+                        .HasColumnType("int");
+
                     b.Property<DateTime?>("BeginDatum")
                         .HasColumnType("datetime2");
 
@@ -316,8 +319,8 @@ namespace backend.Migrations
                     b.Property<float?>("VerkoopPrijs")
                         .HasColumnType("real");
 
-                    b.Property<int>("VerkoperID")
-                        .HasColumnType("int");
+                    b.Property<string>("VerkoperID")
+                        .HasColumnType("nvarchar(max)");
 
                     b.HasKey("VeilingID");
 

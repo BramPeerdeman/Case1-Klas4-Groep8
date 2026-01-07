@@ -72,17 +72,35 @@ export default function VerkoperPage() {
   const handleAddProduct = async (event: React.FormEvent) => {
     event.preventDefault();
 
+    // 1. Validatie Logica (Re-integrated from previous improvement)
+    const missingFields = [];
+    if (!formData.naam) missingFields.push("Naam");
+    if (!formData.beschrijving) missingFields.push("Beschrijving");
+    if (!formData.locatie) missingFields.push("Locatie");
+    if (!formData.aantal) missingFields.push("Aantal");
+    if (!formData.beginDatum) missingFields.push("Startdatum");
+    if (!formData.minPrijs) missingFields.push("Minprijs");
+
+    if (missingFields.length > 0) {
+      notify(`Vul de volgende velden in: ${missingFields.join(", ")}`, "error");
+      return;
+    }
+
+    // Check of prijzen logisch zijn
+    if (Number(formData.minPrijs) < 0) {
+        notify("Minprijs mag niet negatief zijn.", "error");
+        return;
+    }
+    if (Number(formData.aantal) < 1) {
+        notify("Aantal moet minimaal 1 zijn.", "error");
+        return;
+    }
+
     const token = localStorage.getItem("token");
     if (!token) {
       notify("U bent niet ingelogd.", "error");
       return;
     }
-
-    // Als je wilt verplichten dat er een plaatje is:
-    /* if (!selectedFile) {
-        notify("Selecteer aub een afbeelding.", "warning");
-        return;
-    } */
 
     setIsSubmitting(true);
 
@@ -120,8 +138,19 @@ export default function VerkoperPage() {
         setPreviewUrl(null);
       } else {
         const errorText = await response.text();
-        notify("Toevoegen mislukt.", "error");
-        console.error("Backend error:", errorText);
+        
+        // Try to parse validation errors if they are in JSON format
+        try {
+            const errorObj = JSON.parse(errorText);
+            if (errorObj.errors) {
+                const messages = Object.values(errorObj.errors).flat().join(", ");
+                notify(`Fout bij toevoegen: ${messages}`, "error");
+            } else {
+                notify(`Toevoegen mislukt: ${errorText}`, "error");
+            }
+        } catch {
+            notify(`Toevoegen mislukt: ${errorText}`, "error");
+        }
       }
     } catch (err) {
       notify("Kan geen verbinding maken met de server.", "error");
@@ -158,7 +187,8 @@ export default function VerkoperPage() {
               variant="outlined" 
               value={formData.naam} 
               onChange={handleChange} 
-              required fullWidth 
+              fullWidth 
+              // Removed required attribute to let JS validation handle feedback
             />
 
             {/* Beschrijving */}
@@ -169,12 +199,12 @@ export default function VerkoperPage() {
               value={formData.beschrijving} 
               onChange={handleChange} 
               multiline rows={3} 
-              required fullWidth 
+              fullWidth 
             />
 
             <Box display="flex" gap={2}>
                 {/* Locatie Dropdown */}
-                <FormControl fullWidth required>
+                <FormControl fullWidth>
                     <InputLabel id="locatie-label">Locatie</InputLabel>
                     <Select
                         labelId="locatie-label"
@@ -197,7 +227,7 @@ export default function VerkoperPage() {
                     variant="outlined" 
                     value={formData.aantal} 
                     onChange={handleChange} 
-                    required fullWidth 
+                    fullWidth 
                     slotProps={{ htmlInput: { min: 1 } }}
                 />
             </Box>
@@ -214,6 +244,7 @@ export default function VerkoperPage() {
               slotProps={{
                 inputLabel: { shrink: true },
               }}
+              helperText="Let op: De veiling wordt gekoppeld aan de geselecteerde dag."
             />
 
             {/* Prijs */}
@@ -224,7 +255,7 @@ export default function VerkoperPage() {
               variant="outlined" 
               value={formData.minPrijs} 
               onChange={handleChange} 
-              required fullWidth 
+              fullWidth 
               slotProps={{ htmlInput: { step: "0.01", min: 0 } }}
             />
 
@@ -265,7 +296,7 @@ export default function VerkoperPage() {
                 color="primary" 
                 size="large"
                 sx={{ mt: 2 }}
-                disabled={isSubmitting} // Voorkom dubbel klikken
+                disabled={isSubmitting} 
             >
               {isSubmitting ? <CircularProgress size={24} color="inherit" /> : "Product Toevoegen"}
             </Button>

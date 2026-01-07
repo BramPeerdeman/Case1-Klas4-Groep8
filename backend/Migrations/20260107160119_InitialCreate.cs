@@ -221,7 +221,7 @@ namespace backend.Migrations
                     StartDatumTijd = table.Column<DateTime>(type: "datetime2", nullable: false),
                     EindTijd = table.Column<TimeSpan>(type: "time", nullable: true),
                     ProductID = table.Column<int>(type: "int", nullable: false),
-                    VerkoperID = table.Column<int>(type: "int", nullable: false),
+                    VerkoperID = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     KoperId = table.Column<string>(type: "nvarchar(450)", nullable: true)
                 },
                 constraints: table =>
@@ -248,6 +248,7 @@ namespace backend.Migrations
                     StartPrijs = table.Column<decimal>(type: "decimal(18,2)", nullable: true),
                     MinPrijs = table.Column<decimal>(type: "decimal(18,2)", nullable: true),
                     ImageUrl = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    Aantal = table.Column<int>(type: "int", nullable: false),
                     IsAuctionable = table.Column<bool>(type: "bit", nullable: false),
                     Eindprijs = table.Column<float>(type: "real", nullable: true),
                     KoperID = table.Column<string>(type: "nvarchar(max)", nullable: true),
