@@ -21,7 +21,8 @@ namespace backend.Services
                 .AsNoTracking()
                 .Where(p => p.StartPrijs != null &&
                             p.BeginDatum.HasValue &&
-                            p.BeginDatum.Value.Date == today)
+                            p.BeginDatum.Value.Date == today &&
+                            p.IsAuctionable == true) // FIX: Ensure we only fetch products explicitly marked as auctionable
                 .ToListAsync();
         }
     }

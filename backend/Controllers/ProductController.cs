@@ -179,6 +179,8 @@ namespace backend.Controllers
             else
             {
                 product.StartPrijs = newPrice;
+                // FIX: Explicitly set IsAuctionable to true when a valid price is assigned
+                product.IsAuctionable = true;
             }
 
             await _context.SaveChangesAsync();
