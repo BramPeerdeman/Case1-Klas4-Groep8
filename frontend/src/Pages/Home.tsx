@@ -1,10 +1,9 @@
 import { useEffect, useState } from "react";
-import { Container, Typography, Box, Button, Grid, Chip } from "@mui/material";
+import { Container, Typography, Box, Button, Grid, Card, CardMedia, CardContent, CardActionArea, Chip } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import GavelIcon from '@mui/icons-material/Gavel';
 import * as signalR from "@microsoft/signalr";
-import ProductCard from "../Components/ProductCard"; // <--- 1. Import Toevoegen
-import { getImageUrl } from "../Utils/ImageUtils"; // <--- 2. Import Toevoegen
+import { getImageUrl } from "../Utils/ImageUtils"; // Added Import
 
 export default function Home() {
   const navigate = useNavigate();
@@ -18,14 +17,17 @@ export default function Home() {
   useEffect(() => {
     const loadData = async () => {
         try {
+            // Alle producten ophalen voor de Grid
             const prodRes = await fetch(`${baseUrl}/api/Product/products`);
             const allProducts = await prodRes.json();
             setProducts(allProducts);
 
+            // Check of er NU een veiling bezig is voor de Header
             const activeRes = await fetch(`${baseUrl}/api/Veiling/active`);
             if (activeRes.ok) {
                 const auction = await activeRes.json();
                 setActiveAuction(auction);
+                // Zoek het bijbehorende product op voor plaatje/naam
                 const found = allProducts.find((p: any) => p.productID === auction.productId);
                 setActiveProduct(found);
             }
@@ -45,11 +47,13 @@ export default function Home() {
 
     connection.on("ReceiveNewAuction", async (data: any) => {
         setActiveAuction({ productId: data.productId, startTime: data.startTime });
+        // Even snel productnaam ophalen uit onze reeds geladen lijst
         const found = products.find(p => p.productID === data.productId);
         if(found) setActiveProduct(found);
     });
 
     connection.on("ReceiveAuctionResult", () => {
+        // Als veiling klaar is, reset de header
         setActiveAuction(null);
         setActiveProduct(null);
     });
@@ -66,17 +70,13 @@ export default function Home() {
           color: 'white', 
           py: 10, 
           textAlign: 'center',
-          // AANGEPAST: Gebruik getImageUrl zodat uploads ook werken als achtergrond
-          backgroundImage: activeProduct?.imageUrl 
-            ? `linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.6)), url(${getImageUrl(activeProduct.imageUrl)})`
-            : 'linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.6)), url(https://images.unsplash.com/photo-1563245372-f21724e3856d?auto=format&fit=crop&w=1920)',
+          backgroundImage: 'linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.6)), url(https://images.unsplash.com/photo-1563245372-f21724e3856d?auto=format&fit=crop&w=1920)',
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           mb: 6
       }}>
         <Container maxWidth="md">
           {activeAuction && activeProduct ? (
-            // SCENARIO A: Er is een veiling bezig!
             <>
                 <Chip label="🔴 NU LIVE" color="error" sx={{ mb: 2, fontWeight: 'bold' }} />
                 <Typography variant="h2" fontWeight="bold" gutterBottom>
@@ -97,7 +97,6 @@ export default function Home() {
                 </Button>
             </>
           ) : (
-            // SCENARIO B: Rustig
             <>
                 <Typography variant="h2" fontWeight="bold" gutterBottom>
                     Bloemenveiling
@@ -118,18 +117,33 @@ export default function Home() {
         <Typography variant="h4" fontWeight="bold" mb={4}>Ons Aanbod</Typography>
         <Grid container spacing={4}>
             {products.map((product) => (
-                // AANGEPAST: We gebruiken hier jouw ProductCard component
-                <Grid size={{xs:12, sm:6, md:4}} key={product.productID}>
-                    <ProductCard 
-                        product={{
-                            id: product.productID,
-                            name: product.naam,
-                            price: product.startPrijs,
-                            imageUrl: product.imageUrl,
-                            locatie: product.locatie,
-                            aantal: product.aantal
-                        }}
-                    />
+                <Grid size={{ xs: 12, sm: 6, md: 4 }} key={product.productID}>
+                    <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column', borderRadius: 2 }}>
+                        <CardActionArea onClick={() => navigate(`/product/${product.productID}`)}>
+                            <CardMedia
+                                component="img"
+                                height="200"
+                                image={getImageUrl(product.imageUrl)} // Fixed: Wrapped in getImageUrl
+                                alt={product.naam}
+                            />
+                            <CardContent>
+                                <Typography gutterBottom variant="h5" component="div">
+                                    {product.naam}
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                                    {product.beschrijving ? product.beschrijving.substring(0, 60) + "..." : "Geen beschrijving."}
+                                </Typography>
+                                <Box display="flex" justifyContent="space-between" alignItems="center">
+                                    <Typography variant="h6" color="primary">
+                                        € {product.startPrijs}
+                                    </Typography>
+                                    {activeAuction && activeAuction.productId === product.productID && (
+                                        <Chip label="LIVE" color="error" size="small" />
+                                    )}
+                                </Box>
+                            </CardContent>
+                        </CardActionArea>
+                    </Card>
                 </Grid>
             ))}
         </Grid>

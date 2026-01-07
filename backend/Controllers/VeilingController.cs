@@ -14,6 +14,7 @@ namespace backend.Controllers
         public string? BuyerName { get; set; }
         public string? BuyerId { get; set; }
         public decimal Price { get; set; }
+        public int Aantal { get; set; } = 1; // Default to 1
     }
 
     [ApiController]
@@ -51,7 +52,7 @@ namespace backend.Controllers
             return Ok(new { message = "Toegevoegd aan wachtrij" });
         }
 
-        // --- NEW: Endpoint to remove from queue ---
+        // --- Endpoint to remove from queue ---
         [HttpPost("queue/remove/{id}")]
         [Authorize(Roles = "admin")]
         public IActionResult RemoveFromQueue(int id)
@@ -79,9 +80,17 @@ namespace backend.Controllers
         [HttpPost("koop")]
         public async Task<IActionResult> Koop([FromBody] KoopRequest request)
         {
-            bool gelukt = await _auctionService.PlaatsBod(request.ProductId, request.BuyerName, request.Price, request.BuyerId);
-            if (gelukt) return Ok(new { message = "Gekocht!" });
-            return BadRequest(new { message = "Te laat!" });
+            // Pass the Aantal to the service
+            bool gelukt = await _auctionService.PlaatsBod(
+                request.ProductId,
+                request.BuyerName,
+                request.Price,
+                request.BuyerId,
+                request.Aantal
+            );
+
+            if (gelukt) return Ok(new { message = $"Gekocht: {request.Aantal} stuks!" });
+            return BadRequest(new { message = "Te laat of onvoldoende voorraad!" });
         }
 
         [HttpGet("status/{id}")]
