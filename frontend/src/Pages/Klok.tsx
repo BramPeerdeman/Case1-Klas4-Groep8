@@ -1,9 +1,52 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { Box, Container, Typography, Button, CircularProgress, Card, CardMedia, CardContent, TextField } from "@mui/material";
+import { 
+    Box, 
+    Container, 
+    Typography, 
+    Button, 
+    CircularProgress, 
+    Card, 
+    CardMedia, 
+    CardContent, 
+    TextField,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions,
+    List,
+    ListItem,
+    ListItemText,
+    Divider,
+    Grid,
+    Alert
+} from "@mui/material"; // Added Dialog imports
 import { useEffect, useState, useRef } from "react";
 import * as signalR from "@microsoft/signalr";
 import { useAuth } from "../Contexts/AuthContext";
-import { getImageUrl } from "../Utils/ImageUtils"; //
+import { getImageUrl } from "../Utils/ImageUtils"; 
+
+// Interfaces for the History API response
+interface PriceRecord {
+    date: string;
+    price: number;
+}
+
+interface MarketPriceRecord extends PriceRecord {
+    sellerId: string;
+}
+
+interface HistoryData {
+    productName: string;
+    supplierId: string;
+    supplierHistory: {
+        averagePrice: number;
+        records: PriceRecord[];
+    };
+    marketHistory: {
+        averagePrice: number;
+        records: MarketPriceRecord[];
+    };
+}
 
 export default function Klok() {
   const { id } = useParams<{ id: string }>();
@@ -19,6 +62,11 @@ export default function Klok() {
   // NEW: State for Quantity
   const [quantity, setQuantity] = useState<number>(1);
   const [soldAmount, setSoldAmount] = useState<number>(0);
+
+  // NEW: State for History Modal
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyData, setHistoryData] = useState<HistoryData | null>(null);
+  const [loadingHistory, setLoadingHistory] = useState(false);
 
   const timerRef = useRef<number | null>(null);
   const connectionRef = useRef<signalR.HubConnection | null>(null);
@@ -163,6 +211,30 @@ export default function Klok() {
       }
   };
 
+  // NEW: History Handlers
+  const handleOpenHistory = async () => {
+      setHistoryOpen(true);
+      if (!historyData) {
+          setLoadingHistory(true);
+          try {
+              // Using the HistoryController endpoint
+              const res = await fetch(`${baseUrl}/api/History/${id}`);
+              if (res.ok) {
+                  const data = await res.json();
+                  setHistoryData(data);
+              }
+          } catch (e) {
+              console.error("Fout bij laden historie", e);
+          } finally {
+              setLoadingHistory(false);
+          }
+      }
+  };
+
+  const handleCloseHistory = () => {
+      setHistoryOpen(false);
+  };
+
   if (!id || !product) return <CircularProgress />;
 
   return (
@@ -172,7 +244,6 @@ export default function Klok() {
         {/* Left Side: Product Info */}
         <Box flex={1}>
             <Card elevation={4}>
-                {/* FIX: Removed conditional wrapper so getImageUrl is always called */}
                 <CardMedia
                     component="img"
                     height="400"
@@ -189,6 +260,16 @@ export default function Klok() {
                         <Typography variant="h6" color="primary">
                              Voorraad: {product.aantal} stuks
                         </Typography>
+                    </Box>
+                    {/* NEW: Price History Button */}
+                    <Box mt={3}>
+                        <Button 
+                            variant="outlined" 
+                            fullWidth 
+                            onClick={handleOpenHistory}
+                        >
+                            Prijshistorie bekijken
+                        </Button>
                     </Box>
                 </CardContent>
             </Card>
@@ -267,6 +348,91 @@ export default function Klok() {
             )}
         </Box>
       </Box>
+
+      {/* NEW: Price History Dialog */}
+      <Dialog 
+        open={historyOpen} 
+        onClose={handleCloseHistory}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>Prijshistorie: {product.naam}</DialogTitle>
+        <DialogContent dividers>
+            {loadingHistory ? (
+                <Box display="flex" justifyContent="center" p={4}>
+                    <CircularProgress />
+                </Box>
+            ) : historyData ? (
+                <Grid container spacing={4}>
+                    {/* Left Column: Supplier History */}
+                    <Grid size={{ xs: 12, md: 6 }}>
+                        <Typography variant="h6" gutterBottom color="primary">
+                            Deze aanbieder (Laatste 10)
+                        </Typography>
+                        <Alert severity="info" sx={{ mb: 2 }}>
+                            Gemiddelde: € {historyData.supplierHistory.averagePrice?.toFixed(2) || "-"}
+                        </Alert>
+                        <List dense sx={{ bgcolor: 'background.paper' }}>
+                            {historyData.supplierHistory.records.length > 0 ? (
+                                historyData.supplierHistory.records.map((rec, i) => (
+                                    <div key={i}>
+                                        <ListItem>
+                                            <ListItemText 
+                                                primary={`€ ${rec.price.toFixed(2)}`}
+                                                secondary={new Date(rec.date).toLocaleString()}
+                                            />
+                                        </ListItem>
+                                        <Divider component="li" />
+                                    </div>
+                                ))
+                            ) : (
+                                <ListItem><ListItemText primary="Geen historie gevonden." /></ListItem>
+                            )}
+                        </List>
+                    </Grid>
+
+                    {/* Right Column: Market History */}
+                    <Grid size={{ xs: 12, md: 6 }}>
+                        <Typography variant="h6" gutterBottom color="secondary">
+                            Markt Totaal (Laatste 10)
+                        </Typography>
+                        <Alert severity="warning" sx={{ mb: 2 }}>
+                            Marktgemiddelde: € {historyData.marketHistory.averagePrice?.toFixed(2) || "-"}
+                        </Alert>
+                        <List dense sx={{ bgcolor: 'background.paper' }}>
+                            {historyData.marketHistory.records.length > 0 ? (
+                                historyData.marketHistory.records.map((rec, i) => (
+                                    <div key={i}>
+                                        <ListItem>
+                                            <ListItemText 
+                                                primary={`€ ${rec.price.toFixed(2)}`}
+                                                secondary={
+                                                    <>
+                                                        {new Date(rec.date).toLocaleString()} <br/>
+                                                        <Typography variant="caption" component="span">
+                                                            Verkoper: {rec.sellerId || "Onbekend"}
+                                                        </Typography>
+                                                    </>
+                                                }
+                                            />
+                                        </ListItem>
+                                        <Divider component="li" />
+                                    </div>
+                                ))
+                            ) : (
+                                <ListItem><ListItemText primary="Geen markthistorie gevonden." /></ListItem>
+                            )}
+                        </List>
+                    </Grid>
+                </Grid>
+            ) : (
+                <Typography color="error">Kan historie niet laden.</Typography>
+            )}
+        </DialogContent>
+        <DialogActions>
+            <Button onClick={handleCloseHistory}>Sluiten</Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 }
