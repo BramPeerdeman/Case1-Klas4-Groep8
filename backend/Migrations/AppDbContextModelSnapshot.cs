@@ -316,8 +316,8 @@ namespace backend.Migrations
                     b.Property<float?>("VerkoopPrijs")
                         .HasColumnType("real");
 
-                    b.Property<int>("VerkoperID")
-                        .HasColumnType("int");
+                    b.Property<string>("VerkoperID")
+                        .HasColumnType("nvarchar(max)");
 
                     b.HasKey("VeilingID");
 

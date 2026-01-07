@@ -12,7 +12,7 @@ using backend.Data;
 namespace backend.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260107133507_AddAantalField")]
+    [Migration("20260107155639_AddAantalField")]
     partial class AddAantalField
     {
         /// <inheritdoc />
@@ -267,6 +267,9 @@ namespace backend.Migrations
                     b.Property<bool>("IsAuctionable")
                         .HasColumnType("bit");
 
+                    b.Property<string>("KoperID")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("Locatie")
                         .HasColumnType("nvarchar(max)");
 
@@ -316,8 +319,8 @@ namespace backend.Migrations
                     b.Property<float?>("VerkoopPrijs")
                         .HasColumnType("real");
 
-                    b.Property<int>("VerkoperID")
-                        .HasColumnType("int");
+                    b.Property<string>("VerkoperID")
+                        .HasColumnType("nvarchar(max)");
 
                     b.HasKey("VeilingID");
 
