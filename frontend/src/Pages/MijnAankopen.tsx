@@ -2,15 +2,16 @@ import { useEffect, useState } from "react";
 import { Container, Typography, Grid, Card, CardContent, CardMedia, Box, Chip, CircularProgress, Alert } from "@mui/material";
 import EventIcon from '@mui/icons-material/Event';
 import EuroIcon from '@mui/icons-material/Euro';
+import { getImageUrl } from "../Utils/ImageUtils"; //
 
-// Simpele interface voor wat we verwachten
+// Fixed interface to match Backend Product Model
 interface Aankoop {
   productID: number;
   naam: string;
   imageUrl: string;
   beschrijving: string;
   eindprijs: number;
-  verkoopDatum: string;
+  eindDatum: string; // Changed from verkoopDatum to eindDatum
 }
 
 export default function MijnAankopen() {
@@ -34,7 +35,6 @@ export default function MijnAankopen() {
             const data = await response.json();
             setAankopen(data);
         } else {
-            // Als de backend 401 geeft, is het token verlopen
             if(response.status === 401) setError("U bent niet ingelogd.");
             else setError("Kon geschiedenis niet ophalen.");
         }
@@ -71,35 +71,29 @@ export default function MijnAankopen() {
       ) : (
         <Grid container spacing={3}>
           {aankopen.map((product) => (
-            <Grid size={{ xs:12, sm:6, md:4}} key={product.productID}>
+            <Grid size={{ xs: 12, sm: 6, md: 4 }} key={product.productID}>
               <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column', position: 'relative' }}>
-                {/* Badge voor datum */}
+                {/* Fixed Date Usage */}
                 <Chip 
                     icon={<EventIcon sx={{ color: 'white !important' }} />} 
-                    label={new Date(product.verkoopDatum).toLocaleDateString()} 
+                    label={product.eindDatum ? new Date(product.eindDatum).toLocaleDateString() : 'Onbekend'} 
                     sx={{ position: 'absolute', top: 10, right: 10, bgcolor: 'rgba(0,0,0,0.7)', color: 'white' }} 
                 />
 
-                {product.imageUrl ? (
-                    <CardMedia
-                        component="img"
-                        height="200"
-                        image={product.imageUrl}
-                        alt={product.naam}
-                        sx={{ objectFit: 'cover' }}
-                    />
-                ) : (
-                    <Box height={200} bgcolor="#eee" display="flex" alignItems="center" justifyContent="center">
-                        Geen afbeelding
-                    </Box>
-                )}
+                <CardMedia
+                    component="img"
+                    height="200"
+                    image={getImageUrl(product.imageUrl)} // Fixed Image Usage
+                    alt={product.naam}
+                    sx={{ objectFit: 'cover' }}
+                />
 
                 <CardContent sx={{ flexGrow: 1 }}>
                   <Typography gutterBottom variant="h6" component="div">
                     {product.naam}
                   </Typography>
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                    {product.beschrijving.substring(0, 100)}...
+                    {product.beschrijving ? product.beschrijving.substring(0, 100) + "..." : ""}
                   </Typography>
                   
                   <Box display="flex" alignItems="center" gap={1} mt="auto">
