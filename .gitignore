@@ -1,0 +1,32 @@
+# =====================
+# .NET / C# backend
+# =====================
+
+# Build folders
+backend/bin/
+backend/obj/
+backendTests/bin/
+backendTests/obj/
+
+# User-specific files
+backend/*.user
+backend/*.suo
+backend/*.userosscache
+backend/.env
+backend/wwwroot/uploads/
+
+# Negeer de environment variables (bevat wachtwoorden/keys)
+backend/.env
+
+# Negeer de map met geüploade plaatjes
+backend/wwwroot/uploads/
+
+# =====================
+# React frontend
+# =====================
+# frontend/node_modules/
+# frontend/build/
+# frontend/dist/
+
+# VS Code settings
+.vs/
