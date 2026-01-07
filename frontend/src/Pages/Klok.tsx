@@ -1,9 +1,9 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { Box, Container, Typography, Button, CircularProgress, Card, CardMedia, CardContent, TextField } from "@mui/material"; // Added TextField
+import { Box, Container, Typography, Button, CircularProgress, Card, CardMedia, CardContent, TextField } from "@mui/material";
 import { useEffect, useState, useRef } from "react";
 import * as signalR from "@microsoft/signalr";
 import { useAuth } from "../Contexts/AuthContext";
-import { getImageUrl } from "../Utils/ImageUtils";
+import { getImageUrl } from "../Utils/ImageUtils"; //
 
 export default function Klok() {
   const { id } = useParams<{ id: string }>();
@@ -172,15 +172,14 @@ export default function Klok() {
         {/* Left Side: Product Info */}
         <Box flex={1}>
             <Card elevation={4}>
-                {product.imageUrl && (
-                    <CardMedia
-                        component="img"
-                        height="400"
-                        image={getImageUrl(product.imageUrl)}
-                        alt={product.naam}
-                        sx={{ objectFit: "contain", p: 2, bgcolor: "#f5f5f5" }}
-                    />
-                )}
+                {/* FIX: Removed conditional wrapper so getImageUrl is always called */}
+                <CardMedia
+                    component="img"
+                    height="400"
+                    image={getImageUrl(product.imageUrl)}
+                    alt={product.naam}
+                    sx={{ objectFit: "contain", p: 2, bgcolor: "#f5f5f5" }}
+                />
                 <CardContent>
                     <Typography variant="h4" gutterBottom>{product.naam}</Typography>
                     <Typography variant="body1" color="text.secondary">{product.beschrijving}</Typography>

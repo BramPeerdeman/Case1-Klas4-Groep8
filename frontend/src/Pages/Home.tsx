@@ -3,6 +3,7 @@ import { Container, Typography, Box, Button, Grid, Card, CardMedia, CardContent,
 import { useNavigate } from "react-router-dom";
 import GavelIcon from '@mui/icons-material/Gavel';
 import * as signalR from "@microsoft/signalr";
+import { getImageUrl } from "../Utils/ImageUtils"; // Added Import
 
 export default function Home() {
   const navigate = useNavigate();
@@ -36,7 +37,6 @@ export default function Home() {
   }, []);
 
   // 2. LIVE UPDATES (SignalR)
-  // Als er een nieuwe veiling start terwijl je op home zit, update de header!
   useEffect(() => {
     const connection = new signalR.HubConnectionBuilder()
         .withUrl(`${baseUrl}/AuctionHub`)
@@ -77,7 +77,6 @@ export default function Home() {
       }}>
         <Container maxWidth="md">
           {activeAuction && activeProduct ? (
-            // SCENARIO A: Er is een veiling bezig!
             <>
                 <Chip label="🔴 NU LIVE" color="error" sx={{ mb: 2, fontWeight: 'bold' }} />
                 <Typography variant="h2" fontWeight="bold" gutterBottom>
@@ -98,7 +97,6 @@ export default function Home() {
                 </Button>
             </>
           ) : (
-            // SCENARIO B: Rustig
             <>
                 <Typography variant="h2" fontWeight="bold" gutterBottom>
                     Bloemenveiling
@@ -119,13 +117,13 @@ export default function Home() {
         <Typography variant="h4" fontWeight="bold" mb={4}>Ons Aanbod</Typography>
         <Grid container spacing={4}>
             {products.map((product) => (
-                <Grid size={{xs:12, sm:6, md:4}} key={product.productID}>
+                <Grid size={{ xs: 12, sm: 6, md: 4 }} key={product.productID}>
                     <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column', borderRadius: 2 }}>
                         <CardActionArea onClick={() => navigate(`/product/${product.productID}`)}>
                             <CardMedia
                                 component="img"
                                 height="200"
-                                image={product.imageUrl || "https://via.placeholder.com/300?text=Geen+Foto"}
+                                image={getImageUrl(product.imageUrl)} // Fixed: Wrapped in getImageUrl
                                 alt={product.naam}
                             />
                             <CardContent>
@@ -139,7 +137,6 @@ export default function Home() {
                                     <Typography variant="h6" color="primary">
                                         € {product.startPrijs}
                                     </Typography>
-                                    {/* Als dit product toevallig de actieve is, toon label */}
                                     {activeAuction && activeAuction.productId === product.productID && (
                                         <Chip label="LIVE" color="error" size="small" />
                                     )}
