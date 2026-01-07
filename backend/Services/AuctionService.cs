@@ -27,6 +27,7 @@ namespace backend.Services
         public void AddToQueue(List<int> productIds)
         {
             // VALIDATION: Only allow products scheduled for today
+            // UPDATE: Added checks for Aantal > 0 and IsAuctionable == true
             using (var scope = _scopeFactory.CreateScope())
             {
                 var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -35,7 +36,9 @@ namespace backend.Services
                 var validIds = context.Producten
                     .Where(p => productIds.Contains(p.ProductID) &&
                                 p.BeginDatum.HasValue &&
-                                p.BeginDatum.Value.Date == today)
+                                p.BeginDatum.Value.Date == today &&
+                                p.Aantal > 0 &&
+                                p.IsAuctionable)
                     .Select(p => p.ProductID)
                     .ToList();
 
@@ -227,10 +230,17 @@ namespace backend.Services
 
         public async Task MoveNewAuctionableProductsAsync(CancellationToken ct = default)
         {
+            // UPDATE: Exclude products that are sold out or have a buyer
             using (var scope = _scopeFactory.CreateScope())
             {
                 var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-                var newProds = await context.Producten.Where(p => p.StartPrijs != 0 && !p.IsAuctionable).ToListAsync(ct);
+                var newProds = await context.Producten
+                    .Where(p => p.StartPrijs != 0 &&
+                                !p.IsAuctionable &&
+                                p.Aantal > 0 &&
+                                p.KoperID == null)
+                    .ToListAsync(ct);
+
                 if (!newProds.Any()) return;
                 foreach (var p in newProds) p.IsAuctionable = true;
                 await context.SaveChangesAsync(ct);
