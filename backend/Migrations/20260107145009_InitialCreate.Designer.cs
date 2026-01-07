@@ -12,7 +12,7 @@ using backend.Data;
 namespace backend.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20251215121517_InitialCreate")]
+    [Migration("20260107145009_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -264,6 +264,9 @@ namespace backend.Migrations
                     b.Property<bool>("IsAuctionable")
                         .HasColumnType("bit");
 
+                    b.Property<string>("KoperID")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("Locatie")
                         .HasColumnType("nvarchar(max)");
 
@@ -280,8 +283,8 @@ namespace backend.Migrations
                     b.Property<string>("VeilerId")
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<int?>("VerkoperID")
-                        .HasColumnType("int");
+                    b.Property<string>("VerkoperID")
+                        .HasColumnType("nvarchar(max)");
 
                     b.HasKey("ProductID");
 

@@ -2,12 +2,14 @@ import { useParams, useNavigate } from "react-router-dom";
 import { Box, Container, Typography, Button, CircularProgress, Card, CardMedia, CardContent } from "@mui/material";
 import { useEffect, useState, useRef } from "react";
 import * as signalR from "@microsoft/signalr";
+import { useAuth } from "../Contexts/AuthContext";
 
 import { getImageUrl } from "../Utils/ImageUtils";
 
 export default function Klok() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
   
   // State
   const [product, setProduct] = useState<any>(null);
@@ -150,7 +152,7 @@ export default function Klok() {
       try {
           const token = localStorage.getItem("token");
           // TODO: Haal echte naam uit token/context. Voor nu "Ik".
-          const myName = "Klant"; 
+          const myName = user?.name || user?.email || "Klant";
 
           const response = await fetch(`${baseUrl}/api/Veiling/koop`, {
               method: "POST",
@@ -161,7 +163,8 @@ export default function Klok() {
               body: JSON.stringify({
                   productId: Number(id),
                   buyerName: myName,
-                  price: currentPrice
+                  price: currentPrice,
+                  buyerId: user?.sub
               })
           });
 

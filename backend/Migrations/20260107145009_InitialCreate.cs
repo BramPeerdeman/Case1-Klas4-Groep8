@@ -250,7 +250,8 @@ namespace backend.Migrations
                     ImageUrl = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     IsAuctionable = table.Column<bool>(type: "bit", nullable: false),
                     Eindprijs = table.Column<float>(type: "real", nullable: true),
-                    VerkoperID = table.Column<int>(type: "int", nullable: true),
+                    KoperID = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    VerkoperID = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     VeilerId = table.Column<string>(type: "nvarchar(450)", nullable: true)
                 },
                 constraints: table =>
