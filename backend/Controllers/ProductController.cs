@@ -1,4 +1,7 @@
-﻿using backend.Data;
+﻿using backend.DTOs;
+using Microsoft.AspNetCore.Hosting;
+using System.IO;
+using backend.Data;
 using backend.interfaces;
 using backend.Models;
 using Microsoft.AspNetCore.Authorization;
@@ -15,11 +18,13 @@ namespace backend.Controllers
     {
         private readonly AppDbContext _context;
         private readonly IProductService _productService;
+        private readonly IWebHostEnvironment _environment;
 
-        public ProductController(AppDbContext context, IProductService productService)
+        public ProductController(AppDbContext context, IProductService productService, IWebHostEnvironment environment)
         {
             _context = context;
             _productService = productService;
+            _environment = environment;
         }
 
         [HttpGet("products")]
@@ -45,7 +50,7 @@ namespace backend.Controllers
 
         [Authorize(Roles = "veiler")]
         [HttpPost("product")]
-        public async Task<IActionResult> CreateProduct([FromBody] Product product)
+        public async Task<IActionResult> CreateProduct([FromForm] ProductCreateDto input) // Let op: [FromForm]
         {
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
@@ -54,11 +59,47 @@ namespace backend.Controllers
                          ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
 
             if (string.IsNullOrEmpty(userId))
+                return Unauthorized("Kan de gebruikers-ID niet vinden.");
+
+            // --- FILE UPLOAD LOGICA ---
+            string? dbPath = null;
+
+            if (input.ImageFile != null)
             {
-                return Unauthorized("Kan de gebruikers-ID niet uit het token halen. Log opnieuw in.");
+                // Pad bepalen: wwwroot/uploads
+                string uploadsFolder = Path.Combine(_environment.WebRootPath, "uploads");
+
+                // Map maken indien nodig
+                if (!Directory.Exists(uploadsFolder))
+                    Directory.CreateDirectory(uploadsFolder);
+
+                // Unieke naam genereren
+                string uniqueFileName = Guid.NewGuid().ToString() + "_" + input.ImageFile.FileName;
+                string filePath = Path.Combine(uploadsFolder, uniqueFileName);
+
+                // Opslaan
+                using (var fileStream = new FileStream(filePath, FileMode.Create))
+                {
+                    await input.ImageFile.CopyToAsync(fileStream);
+                }
+
+                // Pad opslaan voor in de database
+                dbPath = $"/uploads/{uniqueFileName}";
             }
 
-            product.VerkoperID = userId;
+            // --- PRODUCT AANMAKEN ---
+            var product = new Product
+            {
+                Naam = input.Naam,
+                Beschrijving = input.Beschrijving,
+                MinPrijs = input.MinPrijs,
+                Aantal = input.Aantal,      // Nieuw
+                Locatie = input.Locatie,    // Bestond al
+                BeginDatum = input.BeginDatum,
+                ImageUrl = dbPath,          // Pad naar bestand
+                VerkoperID = userId,
+                IsAuctionable = false
+            };
 
             _context.Producten.Add(product);
             await _context.SaveChangesAsync();
