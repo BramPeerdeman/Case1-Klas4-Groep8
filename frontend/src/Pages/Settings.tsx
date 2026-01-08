@@ -6,6 +6,8 @@ export default function Settings() {
   // Identity comes from AuthContext
   const { user } = useAuth();
 
+  const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5299';
+
   // UI preferences come from UserContext
   const { uiSettings, setUiSettings } = useUser();
 
@@ -14,7 +16,7 @@ export default function Settings() {
 
     const token = localStorage.getItem("token");
     console.log(`/api/Gebruiker/${user.sub}/uisettings`)
-    const res = await fetch(`/api/Gebruiker/${user.sub}/uisettings`, {
+    const res = await fetch(`${baseUrl}/api/Gebruiker/${user.sub}/uisettings`, {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
