@@ -23,6 +23,8 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5299';
+
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -62,7 +64,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const fetchUiSettings = async (token: string) => {
     const decoded = jwtDecode<DecodedToken>(token);
-    const res = await fetch(`/api/Gebruiker/${decoded.sub}/uisettings`, {
+    const res = await fetch(`${baseUrl}/api/Gebruiker/${decoded.sub}/uisettings`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (res.ok) {
