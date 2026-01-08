@@ -20,6 +20,8 @@ export default function Login() {
   const [error, setError] = useState<string>(""); // // NIEUW: Om fouten te tonen
   const { setUiSettings } = useUser(); // <-- import from UserContext
 
+  const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5299';
+
   useEffect(() => {
     if (isLoggedIn) navigate("/");
   }, [isLoggedIn, navigate]);
@@ -29,7 +31,7 @@ const handleLogin = async (event: React.FormEvent) => {
   setError("");
 
   try {
-    const response = await fetch("/api/auth/login", {
+    const response = await fetch(`${baseUrl}/api/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, wachtwoord: password }),
@@ -44,7 +46,7 @@ const handleLogin = async (event: React.FormEvent) => {
       const userId = decoded.sub;
 
       // Fetch UiSettings immediately
-      const settingsRes = await fetch(`/api/Gebruiker/${userId}/uisettings`, {
+      const settingsRes = await fetch(`${baseUrl}/api/Gebruiker/${userId}/uisettings`, {
         headers: { Authorization: `Bearer ${data.token}` },
       });
 
