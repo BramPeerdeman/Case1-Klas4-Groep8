@@ -13,13 +13,11 @@ backend/*.user
 backend/*.suo
 backend/*.userosscache
 backend/.env
-backend/wwwroot/uploads/
 
 # Negeer de environment variables (bevat wachtwoorden/keys)
 backend/.env
 
 # Negeer de map met geüploade plaatjes
-backend/wwwroot/uploads/
 
 # =====================
 # React frontend
