@@ -27,7 +27,6 @@ namespace backend.Services
         public void AddToQueue(List<int> productIds)
         {
             // VALIDATION: Only allow products scheduled for today
-            // UPDATE: Added checks for Aantal > 0 and IsAuctionable == true
             using (var scope = _scopeFactory.CreateScope())
             {
                 var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -84,6 +83,7 @@ namespace backend.Services
             }
         }
 
+        // --- UPDATED METHOD START ---
         public async Task StartAuctionAsync(int productId)
         {
             var auction = _activeAuctions.FirstOrDefault(a => a.ProductId == productId);
@@ -99,14 +99,21 @@ namespace backend.Services
             auction.BuyerName = null;
             auction.FinalPrice = 0;
 
+            // 1. Fetch Start Price from DB
             decimal startPrijs = 0;
             using (var scope = _scopeFactory.CreateScope())
             {
                 var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
                 var product = await db.Producten.FindAsync(productId);
+                // Ensure StartPrijs is cast correctly based on your Entity definition
                 if (product != null) startPrijs = (decimal)product.StartPrijs;
             }
 
+            // 2. Initialize the in-memory current price
+            // Ensure your AuctionState model has a public decimal CurrentPrice { get; set; } property
+            auction.CurrentPrice = startPrijs;
+
+            // 3. Send SignalR update including startPrijs
             await _hub.Clients.All.SendAsync("ReceiveNewAuction", new
             {
                 productId = productId,
@@ -114,6 +121,7 @@ namespace backend.Services
                 startPrijs = startPrijs
             });
         }
+        // --- UPDATED METHOD END ---
 
         public AuctionState GetStatus(int productId)
         {
@@ -121,7 +129,6 @@ namespace backend.Services
             return auction ?? new AuctionState { ProductId = productId, IsRunning = false };
         }
 
-        // --- UPDATED METHOD IMPLEMENTATION ---
         public async Task<bool> PlaatsBod(int productId, string koperNaam, decimal bedrag, string koperId, int aantal)
         {
             var auction = _activeAuctions.FirstOrDefault(a => a.ProductId == productId);
@@ -168,7 +175,7 @@ namespace backend.Services
                 {
                     ProductID = productId,
                     VerkoopPrijs = (float)bedrag,
-                    Aantal = aantal, // Save the amount bought
+                    Aantal = aantal,
                     StartDatumTijd = auction.StartTime,
                     EindTijd = DateTime.Now - auction.StartTime,
                     VerkoperID = prod.VerkoperID ?? "0",
@@ -182,7 +189,6 @@ namespace backend.Services
                 prod.Eindprijs = (float)bedrag;
 
                 // If stock is empty, it is no longer auctionable. 
-                // If stock remains, it stays auctionable (for a future run), but this specific run ends.
                 if (prod.Aantal <= 0)
                 {
                     prod.IsAuctionable = false;
@@ -192,7 +198,7 @@ namespace backend.Services
                 await context.SaveChangesAsync();
             }
 
-            // 3. SignalR Update (Live scherm) - Include amount, sellerId and productName in broadcast
+            // 3. SignalR Update (Live scherm)
             await _hub.Clients.All.SendAsync("ReceiveAuctionResult", new
             {
                 productId = productId,
@@ -200,11 +206,11 @@ namespace backend.Services
                 buyer = koperNaam,
                 price = bedrag,
                 amount = aantal,
-                sellerId = sellerId,      // Added for notification
-                productName = productName // Added for notification text
+                sellerId = sellerId,
+                productName = productName
             });
 
-            // 4. Auto-Play Logica
+            // 4. Auto-Play Logic
             if (_isQueueRunning)
             {
                 _ = Task.Run(async () =>
@@ -230,7 +236,6 @@ namespace backend.Services
 
         public async Task MoveNewAuctionableProductsAsync(CancellationToken ct = default)
         {
-            // UPDATE: Exclude products that are sold out or have a buyer
             using (var scope = _scopeFactory.CreateScope())
             {
                 var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
