@@ -17,7 +17,7 @@ Env.Load();
 
 var builder = WebApplication.CreateBuilder(args);
 
-//builder.Services.AddHostedService<PriceTickerService>();
+builder.Services.AddHostedService<PriceTickerService>();
 
 // --- Database (SQL Server) ---
 builder.Services.AddDbContext<AppDbContext>(options =>
