@@ -12,11 +12,13 @@ import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import { useNavigate } from "react-router-dom";
 import { useNotification } from "../Contexts/NotificationContext";
 
+// Updated Interface
 interface CurrentAuctionItem {
   id: number;
   productNaam: string;
   imageUrl: string;
   startPrijs: number;
+  minPrijs: number; // <--- Added
 }
 
 export default function VeilingMeesterLive() {
@@ -88,10 +90,12 @@ export default function VeilingMeesterLive() {
                             id: productDetails.productID,
                             productNaam: productDetails.naam,
                             imageUrl: productDetails.imageUrl,
-                            startPrijs: productDetails.startPrijs 
+                            startPrijs: productDetails.startPrijs,
+                            minPrijs: productDetails.minPrijs // <--- Store it
                         });
 
-                        startClockAnimation(auctionState.startTime, productDetails.startPrijs);
+                        // FIX: Pass the fetched minPrijs
+                        startClockAnimation(auctionState.startTime, productDetails.startPrijs, productDetails.minPrijs);
                         setStatus("RUNNING");
                     }
                 }
@@ -109,7 +113,7 @@ export default function VeilingMeesterLive() {
 
     connection.on("ReceiveNewAuction", async (data: any) => {
         stopClock(); 
-        stopAutoNextTimer(); // Stop waiting for next if a new one arrives
+        stopAutoNextTimer(); 
         setStatus("RUNNING");
         setBuyerName("");
 
@@ -120,10 +124,13 @@ export default function VeilingMeesterLive() {
                 id: productDetails.productID,
                 productNaam: productDetails.naam,
                 imageUrl: productDetails.imageUrl,
-                startPrijs: data.startPrijs
+                startPrijs: data.startPrijs,
+                minPrijs: productDetails.minPrijs // <--- Store it
             });
 
-            startClockAnimation(data.startTime, data.startPrijs);
+            // FIX: Pass the fetched minPrijs
+            startClockAnimation(data.startTime, data.startPrijs, productDetails.minPrijs);
+            
             notify(`Veiling gestart: ${productDetails.naam}`, "info");
         }
     });
@@ -158,24 +165,28 @@ export default function VeilingMeesterLive() {
       return null;
   };
 
-  const startClockAnimation = (startTimeString: string, startPrice: number) => {
+  // Updated Animation Function
+  const startClockAnimation = (startTimeString: string, startPrice: number, productMinPrice: number) => {
       stopClock();
       
       const startTime = new Date(startTimeString).getTime();
-      const minPrice = startPrice * 0.3; 
+      
+      // FIX: Use the REAL minimum price
+      const minPrice = productMinPrice; 
 
       timerRef.current = window.setInterval(() => {
           const now = Date.now();
           const elapsed = now - startTime;
 
           if (elapsed >= dropDuration) {
-              setCurrentPrice(minPrice); // Snap to minimum
+              setCurrentPrice(minPrice);
               setStatus("TIMEOUT");
               stopClock();
           } else {
               const progress = elapsed / dropDuration;
               const newPrice = startPrice - (progress * (startPrice - minPrice));
               
+              // Ensure we don't drop below the absolute minimum
               if (newPrice < minPrice) setCurrentPrice(minPrice);
               else setCurrentPrice(newPrice);
           }
@@ -355,6 +366,7 @@ export default function VeilingMeesterLive() {
                             <Typography variant="h6">{currentItem.productNaam}</Typography>
                             <Typography variant="body2" color="textSecondary">ID: {currentItem.id}</Typography>
                             <Typography variant="body1" fontWeight="bold">Start: €{currentItem.startPrijs}</Typography>
+                            <Typography variant="caption" display="block">Min: €{currentItem.minPrijs}</Typography>
                         </Box>
                     </Box>
                 ) : (

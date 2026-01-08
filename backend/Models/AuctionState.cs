@@ -8,5 +8,8 @@
         public DateTime StartTime { get; set; }
         public string? BuyerName { get; set; }
         public decimal FinalPrice { get; set; }
+
+        // NEW: Track the live price in memory
+        public decimal CurrentPrice { get; set; }
     }
 }

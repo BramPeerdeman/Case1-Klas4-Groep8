@@ -19,7 +19,7 @@ import {
     Divider,
     Grid,
     Alert
-} from "@mui/material"; // Added Dialog imports
+} from "@mui/material"; 
 import { useEffect, useState, useRef } from "react";
 import * as signalR from "@microsoft/signalr";
 import { useAuth } from "../Contexts/AuthContext";
@@ -59,11 +59,11 @@ export default function Klok() {
   const [status, setStatus] = useState<"WAITING" | "RUNNING" | "SOLD" | "TIMEOUT">("WAITING");
   const [buyerName, setBuyerName] = useState<string>("");
   
-  // NEW: State for Quantity
+  // State for Quantity
   const [quantity, setQuantity] = useState<number>(1);
   const [soldAmount, setSoldAmount] = useState<number>(0);
 
-  // NEW: State for History Modal
+  // State for History Modal
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyData, setHistoryData] = useState<HistoryData | null>(null);
   const [loadingHistory, setLoadingHistory] = useState(false);
@@ -74,7 +74,42 @@ export default function Klok() {
   const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5299';
   const dropDuration = 30000; 
 
-  // 1. SIGNALR VERBINDING & LUISTERAARS
+  // --- UPDATED ANIMATION FUNCTION ---
+  // Now accepts productMinPrice as the 3rd argument
+  const startClockAnimation = (startTimeString: string, startPrice: number, productMinPrice: number) => {
+      stopClock(); 
+      setStatus("RUNNING");
+      
+      const startTime = new Date(startTimeString).getTime();
+      
+      // FIX: Use the REAL minimum price from the database, not 30%
+      const minPrice = productMinPrice; 
+
+      timerRef.current = window.setInterval(() => {
+          const now = Date.now();
+          const elapsed = now - startTime;
+
+          if (elapsed >= dropDuration) {
+              setCurrentPrice(minPrice);
+              setStatus("TIMEOUT");
+              stopClock();
+          } else {
+              const progress = elapsed / dropDuration;
+              // Calculate price based on the real range (Start -> MinPrijs)
+              const newPrice = startPrice - (progress * (startPrice - minPrice));
+              setCurrentPrice(newPrice);
+          }
+      }, 50); 
+  };
+
+  const stopClock = () => {
+      if (timerRef.current) {
+          clearInterval(timerRef.current);
+          timerRef.current = null;
+      }
+  };
+
+  // 1. SIGNALR CONNECTION & LISTENERS
   useEffect(() => {
     const connection = new signalR.HubConnectionBuilder()
         .withUrl(`${baseUrl}/AuctionHub`)
@@ -90,14 +125,13 @@ export default function Klok() {
         navigate(`/klok/${data.productId}`);
     });
 
-    // Modified Handler to accept amount
     connection.on("ReceiveAuctionResult", (data: any) => {
         if (id && data.productId.toString() === id) {
             stopClock();
             setStatus("SOLD");
             setBuyerName(data.buyer);
             setCurrentPrice(data.price);
-            setSoldAmount(data.amount || 1); // Set sold amount
+            setSoldAmount(data.amount || 1); 
         }
     });
 
@@ -108,7 +142,7 @@ export default function Klok() {
     };
   }, [id, navigate]); 
 
-  // 2. PRODUCT DATA LADEN
+  // 2. LOAD PRODUCT DATA
   useEffect(() => {
     const loadProductData = async () => {
         if (!id) return;
@@ -122,7 +156,7 @@ export default function Klok() {
 
             if (found) {
                 setProduct(found);
-                setQuantity(1); // Reset quantity selector to 1 for new product
+                setQuantity(1); 
                 
                 const statusRes = await fetch(`${baseUrl}/api/Veiling/status/${id}`);
                 if (statusRes.ok) {
@@ -133,7 +167,8 @@ export default function Klok() {
                         setBuyerName(serverState.buyerName);
                         setCurrentPrice(serverState.finalPrice);
                     } else if (serverState.isRunning) {
-                        startClockAnimation(serverState.startTime, found.startPrijs);
+                        // FIX: Pass found.minPrijs to the animation
+                        startClockAnimation(serverState.startTime, found.startPrijs, found.minPrijs);
                     } else {
                         setCurrentPrice(found.startPrijs);
                         setStatus("WAITING");
@@ -148,38 +183,7 @@ export default function Klok() {
     loadProductData();
   }, [id]);
 
-  // ... [Keep startClockAnimation and stopClock unchanged] ...
-  const startClockAnimation = (startTimeString: string, startPrice: number) => {
-      stopClock(); 
-      setStatus("RUNNING");
-      
-      const startTime = new Date(startTimeString).getTime();
-      const minPrice = startPrice * 0.3; 
-
-      timerRef.current = window.setInterval(() => {
-          const now = Date.now();
-          const elapsed = now - startTime;
-
-          if (elapsed >= dropDuration) {
-              setCurrentPrice(minPrice);
-              setStatus("TIMEOUT");
-              stopClock();
-          } else {
-              const progress = elapsed / dropDuration;
-              const newPrice = startPrice - (progress * (startPrice - minPrice));
-              setCurrentPrice(newPrice);
-          }
-      }, 50); 
-  };
-
-  const stopClock = () => {
-      if (timerRef.current) {
-          clearInterval(timerRef.current);
-          timerRef.current = null;
-      }
-  };
-
-  // 4. KOOP ACTIE
+  // 4. BUY ACTION
   const handleBuy = async () => {
       if (status !== "RUNNING" || !currentPrice) return;
       stopClock();
@@ -199,7 +203,7 @@ export default function Klok() {
                   buyerName: myName,
                   price: currentPrice,
                   buyerId: user?.sub,
-                  aantal: quantity // Send selected quantity
+                  aantal: quantity 
               })
           });
 
@@ -211,13 +215,12 @@ export default function Klok() {
       }
   };
 
-  // NEW: History Handlers
+  // History Handlers
   const handleOpenHistory = async () => {
       setHistoryOpen(true);
       if (!historyData) {
           setLoadingHistory(true);
           try {
-              // Using the HistoryController endpoint
               const res = await fetch(`${baseUrl}/api/History/${id}`);
               if (res.ok) {
                   const data = await res.json();
@@ -256,12 +259,11 @@ export default function Klok() {
                     <Typography variant="body1" color="text.secondary">{product.beschrijving}</Typography>
                     <Box mt={2} display="flex" justifyContent="space-between">
                         <Typography variant="h6">Startprijs: € {product.startPrijs}</Typography>
-                        {/* Show available stock */}
                         <Typography variant="h6" color="primary">
                              Voorraad: {product.aantal} stuks
                         </Typography>
                     </Box>
-                    {/* NEW: Price History Button */}
+                    
                     <Box mt={3}>
                         <Button 
                             variant="outlined" 
@@ -314,7 +316,6 @@ export default function Klok() {
                     value={quantity}
                     onChange={(e) => {
                         const val = parseInt(e.target.value);
-                        // Clamp value between 1 and max stock
                         if (!isNaN(val)) setQuantity(Math.min(Math.max(1, val), product.aantal));
                     }}
                     disabled={status !== "RUNNING"}
@@ -331,7 +332,7 @@ export default function Klok() {
                     onClick={handleBuy}
                     disabled={status !== "RUNNING"}
                     sx={{ 
-                        height: 56, // Match standard TextField height
+                        height: 56, 
                         fontSize: '1.5rem', 
                         borderRadius: 2,
                         boxShadow: status === "RUNNING" ? '0 0 30px rgba(211, 47, 47, 0.6)' : 'none',
@@ -349,7 +350,7 @@ export default function Klok() {
         </Box>
       </Box>
 
-      {/* NEW: Price History Dialog */}
+      {/* Price History Dialog */}
       <Dialog 
         open={historyOpen} 
         onClose={handleCloseHistory}

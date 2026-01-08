@@ -1,74 +1,96 @@
 ﻿using backend.Data;
 using backend.Hubs;
+using backend.interfaces; // Required for IAuctionService
+using backend.Models;     // Required for AuctionState
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting;
-using System.Threading;
 using Microsoft.Extensions.DependencyInjection;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace backend.Services
 {
-    
-        public class PriceTickerService : BackgroundService
+    public class PriceTickerService : BackgroundService
+    {
+        private readonly IHubContext<AuctionHub> _hub;
+        private readonly IServiceScopeFactory _scopeFactory;
+        private readonly IAuctionService _auctionService; // Inject AuctionService
+
+        public PriceTickerService(
+            IHubContext<AuctionHub> hub,
+            IServiceScopeFactory scopeFactory,
+            IAuctionService auctionService)
         {
-            private readonly IHubContext<AuctionHub> _hub;
-            private readonly IServiceScopeFactory _scopeFactory;
+            _hub = hub;
+            _scopeFactory = scopeFactory;
+            _auctionService = auctionService;
+        }
 
-            public PriceTickerService(
-                IHubContext<AuctionHub> hub,
-                IServiceScopeFactory scopeFactory)
-            {
-                _hub = hub;
-                _scopeFactory = scopeFactory;
-            }
+        protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+        {
+            // Initial delay to ensure server is fully up
+            await Task.Delay(2000, stoppingToken);
 
-            protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+            while (!stoppingToken.IsCancellationRequested)
             {
-                while (!stoppingToken.IsCancellationRequested)
+                try
                 {
-                    using var scope = _scopeFactory.CreateScope();
-                    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                    // 1. Get the Active Auction from the Singleton Service
+                    var activeAuction = _auctionService.GetActiveAuction();
 
-                    // Example: hard-coded product id 1 for now
-                    var product = await db.Producten
-                        .FirstOrDefaultAsync(p => p.ProductID == 1, stoppingToken);
-
-                    if (product == null)
+                    // If no auction is running, or it's sold, just wait.
+                    if (activeAuction == null || !activeAuction.IsRunning || activeAuction.IsSold)
                     {
                         await Task.Delay(1000, stoppingToken);
                         continue;
                     }
 
-                // Assuming:
-                // StartPrijs: decimal?
-                // MinimumPrijs: float? (or decimal? – adjust accordingly)
-
-                decimal current = product.StartPrijs ?? 0m;
-
-                // If MinimumPrijs is decimal?
-                // decimal min = product.MinimumPrijs ?? 0m;
-
-                // If MinimumPrijs is float? and you need decimal:
-                decimal min = product.MinPrijs ?? 0m;
-
-                if (current > min)
+                    // 2. Retrieve Product Details (MinPrijs) from DB
+                    using (var scope = _scopeFactory.CreateScope())
                     {
-                        decimal next = current - 1m;
+                        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-                        product.StartPrijs = next;
-                        await db.SaveChangesAsync(stoppingToken);
+                        var product = await db.Producten
+                            .AsNoTracking() // Optimization: Read-only access
+                            .FirstOrDefaultAsync(p => p.ProductID == activeAuction.ProductId, stoppingToken);
 
-                        await _hub.Clients.All.SendAsync(
-                            "PrijsUpdate",
-                            next,
-                            cancellationToken: stoppingToken
-                        );
+                        if (product == null)
+                        {
+                            await Task.Delay(1000, stoppingToken);
+                            continue;
+                        }
+
+                        decimal min = product.MinPrijs ?? 0m;
+                        decimal current = activeAuction.CurrentPrice; // Read from Memory
+
+                        // 3. Decrement Logic
+                        if (current > min)
+                        {
+                            decimal next = current - 1m; // Decrement by 1
+                            if (next < min) next = min;  // Cap at minimum
+
+                            // 4. Update Memory State ONLY (Fixes DB destruction issue)
+                            activeAuction.CurrentPrice = next;
+
+                            // 5. Broadcast via SignalR
+                            await _hub.Clients.All.SendAsync(
+                                "PrijsUpdate",
+                                next,
+                                cancellationToken: stoppingToken
+                            );
+                        }
                     }
-
-                    await Task.Delay(1000, stoppingToken);
                 }
+                catch (Exception ex)
+                {
+                    // Log error to prevent the background service from crashing completely
+                    Console.WriteLine($"Ticker Error: {ex.Message}");
+                }
+
+                // Wait 1 second before next tick
+                await Task.Delay(1000, stoppingToken);
             }
         }
-  
+    }
 }
