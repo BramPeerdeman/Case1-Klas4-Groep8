@@ -9,6 +9,10 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using System;
 
 namespace backend.Controllers
 {
@@ -66,25 +70,20 @@ namespace backend.Controllers
 
             if (input.ImageFile != null)
             {
-                // FIX: Fallback if WebRootPath is null (happens in tests or if wwwroot missing)
                 string webRoot = _environment.WebRootPath ?? Path.Combine(_environment.ContentRootPath, "wwwroot");
                 string uploadsFolder = Path.Combine(webRoot, "uploads");
 
-                // Map maken indien nodig
                 if (!Directory.Exists(uploadsFolder))
                     Directory.CreateDirectory(uploadsFolder);
 
-                // Unieke naam genereren
                 string uniqueFileName = Guid.NewGuid().ToString() + "_" + input.ImageFile.FileName;
                 string filePath = Path.Combine(uploadsFolder, uniqueFileName);
 
-                // Opslaan
                 using (var fileStream = new FileStream(filePath, FileMode.Create))
                 {
                     await input.ImageFile.CopyToAsync(fileStream);
                 }
 
-                // Pad opslaan voor in de database
                 dbPath = $"/uploads/{uniqueFileName}";
             }
 
@@ -94,7 +93,7 @@ namespace backend.Controllers
                 Naam = input.Naam,
                 Beschrijving = input.Beschrijving,
                 MinPrijs = input.MinPrijs,
-                Aantal = input.Aantal,      // Nieuw Veld (Merged)
+                Aantal = input.Aantal,
                 Locatie = input.Locatie,
                 BeginDatum = input.BeginDatum,
                 ImageUrl = dbPath,
@@ -170,7 +169,6 @@ namespace backend.Controllers
                 }
             }
 
-            // Reset to null if 0
             if (newPrice == 0)
             {
                 product.StartPrijs = null;
@@ -179,7 +177,6 @@ namespace backend.Controllers
             else
             {
                 product.StartPrijs = newPrice;
-                // FIX: Explicitly set IsAuctionable to true when a valid price is assigned
                 product.IsAuctionable = true;
             }
 
@@ -236,17 +233,17 @@ namespace backend.Controllers
             return Ok(myProducts);
         }
 
+        // --- UPDATED METHOD START ---
         [HttpGet("geschiedenis")]
         [Authorize]
         public async Task<IActionResult> GetAankoopGeschiedenis()
         {
-            Console.WriteLine("--- DEBUG: Geschiedenis wordt opgevraagd ---");
-
+            // 1. Retrieve User ID from Claims
             var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
             if (string.IsNullOrEmpty(userId))
             {
-                userId = User.FindFirst("sub")?.Value;
+                userId = User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
             }
 
             if (string.IsNullOrEmpty(userId))
@@ -259,13 +256,28 @@ namespace backend.Controllers
                 return Unauthorized("De server kan uw User ID niet uit het token lezen.");
             }
 
-            var gekochteProducten = await _context.Producten
-                .Where(p => p.KoperID == userId)
-                .OrderByDescending(p => p.EindDatum)
+            // 2. Query Veiling table, Filter by KoperId, and Join with Product
+            var history = await _context.Veilingen
                 .AsNoTracking()
+                .Where(v => v.KoperId == userId) // Filter auctions bought by this user
+                .Join(_context.Producten,        // Join with Product table
+                    veiling => veiling.ProductID,
+                    product => product.ProductID,
+                    (veiling, product) => new PurchaseHistoryDto
+                    {
+                        ProductID = product.ProductID,
+                        Naam = product.Naam,
+                        ImageUrl = product.ImageUrl,
+                        Beschrijving = product.Beschrijving,
+                        VerkoopPrijs = veiling.VerkoopPrijs, // The actual price paid in the auction
+                        Aantal = veiling.Aantal,             // The quantity captured in the auction record
+                        Datum = veiling.StartDatumTijd       // Date of purchase
+                    })
+                .OrderByDescending(dto => dto.Datum) // Most recent purchases first
                 .ToListAsync();
 
-            return Ok(gekochteProducten);
+            return Ok(history);
         }
+        // --- UPDATED METHOD END ---
     }
 }

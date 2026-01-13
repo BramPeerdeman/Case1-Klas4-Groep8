@@ -83,7 +83,6 @@ namespace backend.Services
             }
         }
 
-        // --- UPDATED METHOD START ---
         public async Task StartAuctionAsync(int productId)
         {
             var auction = _activeAuctions.FirstOrDefault(a => a.ProductId == productId);
@@ -105,12 +104,11 @@ namespace backend.Services
             {
                 var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
                 var product = await db.Producten.FindAsync(productId);
-                // Ensure StartPrijs is cast correctly based on your Entity definition
+
                 if (product != null) startPrijs = (decimal)product.StartPrijs;
             }
 
             // 2. Initialize the in-memory current price
-            // Ensure your AuctionState model has a public decimal CurrentPrice { get; set; } property
             auction.CurrentPrice = startPrijs;
 
             // 3. Send SignalR update including startPrijs
@@ -121,7 +119,6 @@ namespace backend.Services
                 startPrijs = startPrijs
             });
         }
-        // --- UPDATED METHOD END ---
 
         public AuctionState GetStatus(int productId)
         {
@@ -129,6 +126,7 @@ namespace backend.Services
             return auction ?? new AuctionState { ProductId = productId, IsRunning = false };
         }
 
+        // --- UPDATED METHOD IMPLEMENTATION ---
         public async Task<bool> PlaatsBod(int productId, string koperNaam, decimal bedrag, string koperId, int aantal)
         {
             var auction = _activeAuctions.FirstOrDefault(a => a.ProductId == productId);
@@ -170,7 +168,7 @@ namespace backend.Services
                 // Deduct Stock
                 prod.Aantal -= aantal;
 
-                // Veiling loggen
+                // Veiling loggen (Permanent Receipt)
                 var veiling = new Veiling
                 {
                     ProductID = productId,
@@ -184,9 +182,7 @@ namespace backend.Services
                 context.Veilingen.Add(veiling);
 
                 // Update Product status
-                prod.KoperID = koperId;
-                prod.EindDatum = DateTime.Now;
-                prod.Eindprijs = (float)bedrag;
+                // Refactor: Product only tracks stock. KoperID is not assigned to Product anymore.
 
                 // If stock is empty, it is no longer auctionable. 
                 if (prod.Aantal <= 0)
@@ -222,6 +218,7 @@ namespace backend.Services
 
             return true;
         }
+        // --- END OF UPDATED METHOD ---
 
         public async Task ForceNextAsync()
         {
