@@ -2,16 +2,18 @@ import { useEffect, useState } from "react";
 import { Container, Typography, Grid, Card, CardContent, CardMedia, Box, Chip, CircularProgress, Alert } from "@mui/material";
 import EventIcon from '@mui/icons-material/Event';
 import EuroIcon from '@mui/icons-material/Euro';
-import { getImageUrl } from "../Utils/ImageUtils"; //
+import ShoppingBagIcon from '@mui/icons-material/ShoppingBag';
+import { getImageUrl } from "../Utils/ImageUtils";
 
-// Fixed interface to match Backend Product Model
+// Updated interface to match Backend PurchaseHistoryDto
 interface Aankoop {
   productID: number;
   naam: string;
   imageUrl: string;
   beschrijving: string;
-  eindprijs: number;
-  eindDatum: string; // Changed from verkoopDatum to eindDatum
+  verkoopPrijs: number; // Changed from eindprijs to match backend DTO
+  aantal: number;       // New field
+  datum: string;        // Changed from eindDatum to match backend DTO
 }
 
 export default function MijnAankopen() {
@@ -73,17 +75,17 @@ export default function MijnAankopen() {
           {aankopen.map((product) => (
             <Grid size={{ xs: 12, sm: 6, md: 4 }} key={product.productID}>
               <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column', position: 'relative' }}>
-                {/* Fixed Date Usage */}
+                {/* Date Chip */}
                 <Chip 
                     icon={<EventIcon sx={{ color: 'white !important' }} />} 
-                    label={product.eindDatum ? new Date(product.eindDatum).toLocaleDateString() : 'Onbekend'} 
+                    label={product.datum ? new Date(product.datum).toLocaleDateString() : 'Onbekend'} 
                     sx={{ position: 'absolute', top: 10, right: 10, bgcolor: 'rgba(0,0,0,0.7)', color: 'white' }} 
                 />
 
                 <CardMedia
                     component="img"
                     height="200"
-                    image={getImageUrl(product.imageUrl)} // Fixed Image Usage
+                    image={getImageUrl(product.imageUrl)}
                     alt={product.naam}
                     sx={{ objectFit: 'cover' }}
                 />
@@ -96,13 +98,23 @@ export default function MijnAankopen() {
                     {product.beschrijving ? product.beschrijving.substring(0, 100) + "..." : ""}
                   </Typography>
                   
+                  {/* New Quantity Display */}
+                  <Chip 
+                    icon={<ShoppingBagIcon />} 
+                    label={`Gekocht: ${product.aantal} stuks`} 
+                    color="primary" 
+                    variant="outlined" 
+                    size="small"
+                    sx={{ mb: 2 }} 
+                  />
+
                   <Box display="flex" alignItems="center" gap={1} mt="auto">
                     <EuroIcon color="success" />
                     <Typography variant="h6" color="success.main" fontWeight="bold">
-                        {product.eindprijs}
+                        {product.verkoopPrijs?.toFixed(2) ?? "0.00"}
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
-                        (Gewonnen bod)
+                        (per stuk)
                     </Typography>
                   </Box>
                 </CardContent>
