@@ -173,7 +173,7 @@ namespace backend.Services
             auction.IsRunning = false;
             auction.IsSold = true;
             auction.BuyerName = koperNaam;
-            auction.FinalPrice = bedrag;
+            auction.FinalPrice = auction.CurrentPrice;
 
             // Variables to hold data for SignalR (extracted from DB scope)
             string sellerId = "";
