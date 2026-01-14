@@ -25,7 +25,16 @@ export default function MyProducts() {
   
   // State for Editing
   const [editProduct, setEditProduct] = useState<Product | null>(null);
-  const [newDate, setNewDate] = useState("");
+  
+  // Refactored: Form state object instead of single date string
+  const [formData, setFormData] = useState({
+      naam: "",
+      beschrijving: "",
+      minPrijs: 0,
+      aantal: 0,
+      beginDatum: ""
+  });
+
   const [openDialog, setOpenDialog] = useState(false);
 
   const navigate = useNavigate();
@@ -36,45 +45,62 @@ export default function MyProducts() {
 
   const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5299';
 
-  // Open the edit dialog
+  // Open the edit dialog and populate form
   const handleEditClick = (id: number) => {
     const product = products.find(p => p.productID === id);
     if (product) {
         setEditProduct(product);
-        // Format date to YYYY-MM-DD for the input field
-        const dateStr = product.beginDatum ? new Date(product.beginDatum).toISOString().split('T')[0] : "";
-        setNewDate(dateStr);
+        setFormData({
+            naam: product.naam,
+            beschrijving: product.beschrijving,
+            minPrijs: product.minPrijs,
+            aantal: product.aantal,
+            beginDatum: product.beginDatum ? new Date(product.beginDatum).toISOString().split('T')[0] : ""
+        });
         setOpenDialog(true);
     }
   };
 
-  // Save the new date
-  const handleUpdateDate = async () => {
-    if (!editProduct || !newDate) return;
+  // Save the product updates
+  const handleUpdateProduct = async () => {
+    if (!editProduct) return;
 
     try {
         const token = localStorage.getItem("token");
+        
+        // Construct payload from form data
+        const payload = {
+            ...editProduct,
+            naam: formData.naam,
+            beschrijving: formData.beschrijving,
+            minPrijs: formData.minPrijs,
+            aantal: formData.aantal,
+            beginDatum: formData.beginDatum
+        };
+
         const response = await fetch(`${baseUrl}/api/Product/product/${editProduct.productID}`, {
             method: "PUT",
             headers: {
                 "Content-Type": "application/json",
                 "Authorization": `Bearer ${token}`
             },
-            body: JSON.stringify({ ...editProduct, beginDatum: newDate })
+            body: JSON.stringify(payload)
         });
 
         if (response.ok) {
-            if (notify) notify("Datum aangepast!", "success");
+            const updatedProduct = await response.json();
+            if (notify) notify("Product aangepast!", "success");
             
-            // Update local state
+            // Update local state with the response from backend
             setProducts(prev => prev.map(p => 
-                p.productID === editProduct.productID ? { ...p, beginDatum: newDate } : p
+                p.productID === editProduct.productID ? { ...p, ...updatedProduct } : p
             ));
             
             setOpenDialog(false);
             setEditProduct(null);
         } else {
-            if (notify) notify("Kon datum niet aanpassen.", "error");
+            const err = await response.text();
+            if (notify) notify(err || "Kon product niet aanpassen.", "error");
         }
     } catch (e) {
         console.error(e);
@@ -249,35 +275,75 @@ export default function MyProducts() {
                   imageUrl: product.imageUrl,
                   aantal: product.aantal, 
                   beginDatum: product.beginDatum,
-                  isAuctionable: product.isAuctionable // Pass new prop
+                  isAuctionable: product.isAuctionable 
                 }}
                 onDelete={handleDelete}
                 onEdit={handleEditClick}
-                onStop={handleStopSale} // Pass stop handler
+                onStop={handleStopSale} 
               />
             </Grid>
           ))}
         </Grid>
       )}
 
-      {/* EDIT DATE DIALOG */}
-      <Dialog open={openDialog} onClose={() => setOpenDialog(false)}>
-        <DialogTitle>Verplaats Veiling</DialogTitle>
+      {/* EDIT PRODUCT DIALOG */}
+      <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Product Wijzigen</DialogTitle>
         <DialogContent>
-            <Typography variant="body2" sx={{mb: 2, mt: 1}}>
-                Kies een nieuwe startdatum voor <strong>{editProduct?.naam}</strong>.
+            <Typography variant="body2" sx={{mb: 2, color: 'text.secondary'}}>
+                Pas de gegevens aan voor <strong>{editProduct?.naam}</strong>.
             </Typography>
+
+            <TextField
+                label="Naam"
+                fullWidth
+                margin="dense"
+                value={formData.naam}
+                onChange={(e) => setFormData({ ...formData, naam: e.target.value })}
+            />
+
+            <TextField
+                label="Beschrijving"
+                fullWidth
+                multiline
+                rows={3}
+                margin="dense"
+                value={formData.beschrijving}
+                onChange={(e) => setFormData({ ...formData, beschrijving: e.target.value })}
+            />
+
+            <Box display="flex" gap={2}>
+                <TextField
+                    label="Min. Prijs (€)"
+                    type="number"
+                    fullWidth
+                    margin="dense"
+                    value={formData.minPrijs}
+                    onChange={(e) => setFormData({ ...formData, minPrijs: Number(e.target.value) })}
+                />
+                <TextField
+                    label="Aantal"
+                    type="number"
+                    fullWidth
+                    margin="dense"
+                    value={formData.aantal}
+                    onChange={(e) => setFormData({ ...formData, aantal: Number(e.target.value) })}
+                />
+            </Box>
+
             <TextField
                 type="date"
+                label="Veiling Datum"
                 fullWidth
-                variant="outlined"
-                value={newDate}
-                onChange={(e) => setNewDate(e.target.value)}
+                margin="dense"
+                InputLabelProps={{ shrink: true }}
+                value={formData.beginDatum}
+                onChange={(e) => setFormData({ ...formData, beginDatum: e.target.value })}
             />
         </DialogContent>
         <DialogActions>
             <Button onClick={() => setOpenDialog(false)}>Annuleren</Button>
-            <Button onClick={handleUpdateDate} variant="contained" color="primary">Opslaan</Button>
+            <Button onClick={handleUpdateProduct} variant="contained" color="primary">Opslaan</Button>
         </DialogActions>
       </Dialog>
 

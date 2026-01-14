@@ -22,10 +22,9 @@ namespace backend.Controllers
     {
         private readonly AppDbContext _context;
         private readonly IProductService _productService;
-        private readonly IAuctionService _auctionService; // ADDED
+        private readonly IAuctionService _auctionService;
         private readonly IWebHostEnvironment _environment;
 
-        // Updated Constructor
         public ProductController(AppDbContext context, IProductService productService, IAuctionService auctionService, IWebHostEnvironment environment)
         {
             _context = context;
@@ -39,7 +38,6 @@ namespace backend.Controllers
         {
             var products = await _context.Producten
                 .AsNoTracking()
-                // FIX: Filter by Quantity so sold-out items disappear, even if KoperID is null
                 .Where(p => p.KoperID == null && p.Aantal > 0)
                 .ToListAsync();
             return Ok(products);
@@ -70,7 +68,6 @@ namespace backend.Controllers
             if (string.IsNullOrEmpty(userId))
                 return Unauthorized("Kan de gebruikers-ID niet vinden.");
 
-            // --- FILE UPLOAD LOGICA ---
             string? dbPath = null;
 
             if (input.ImageFile != null)
@@ -92,7 +89,6 @@ namespace backend.Controllers
                 dbPath = $"/uploads/{uniqueFileName}";
             }
 
-            // --- PRODUCT AANMAKEN ---
             var product = new Product
             {
                 Naam = input.Naam,
@@ -127,7 +123,6 @@ namespace backend.Controllers
             if (product == null)
                 return NotFound("Product niet gevonden.");
 
-            // FIX 1: Prevent "Griefing" and History Deletion
             if (product.IsAuctionable)
             {
                 return BadRequest("Dit product staat ingepland voor de veiling of is live en kan niet worden verwijderd. Stop de verkoop eerst.");
@@ -149,7 +144,6 @@ namespace backend.Controllers
             return Ok(new { message = "Product verwijderd" });
         }
 
-        // --- NEW ENDPOINT: STOP SALE ---
         [HttpPut("product/{id}/stop")]
         [Authorize(Roles = "veiler")]
         public async Task<IActionResult> StopSelling(int id)
@@ -159,15 +153,12 @@ namespace backend.Controllers
 
             if (product == null) return NotFound();
 
-            // Security check
             if (product.VerkoperID != userId) return Forbid("Niet uw product");
 
-            // 1. Remove from Active Memory Queue (Important!)
             _auctionService.RemoveFromQueue(id);
 
-            // 2. Update DB State
             product.IsAuctionable = false;
-            product.StartPrijs = null; // Resetting start price effectively moves it back to "New" list for Admin
+            product.StartPrijs = null;
 
             await _context.SaveChangesAsync();
             return Ok(new { message = "Verkoop gestopt. Product is teruggezet naar concepten en uit de wachtrij gehaald." });
@@ -180,10 +171,16 @@ namespace backend.Controllers
             if (selectedproduct == null)
                 return NotFound();
 
-            // Existing logic
-            selectedproduct.StartPrijs = updatedproduct.StartPrijs;
+            if (selectedproduct.IsAuctionable || !string.IsNullOrEmpty(selectedproduct.KoperID))
+            {
+                return BadRequest("Product kan niet worden gewijzigd omdat het live staat of al verkocht is. Stop de verkoop eerst.");
+            }
 
-            // FIX 3: Allow changing the date if it didn't sell
+            selectedproduct.Naam = updatedproduct.Naam;
+            selectedproduct.Beschrijving = updatedproduct.Beschrijving;
+            selectedproduct.MinPrijs = updatedproduct.MinPrijs;
+            selectedproduct.Aantal = updatedproduct.Aantal;
+
             if (updatedproduct.BeginDatum != null)
             {
                 selectedproduct.BeginDatum = updatedproduct.BeginDatum;
@@ -207,15 +204,16 @@ namespace backend.Controllers
             if (product == null)
                 return NotFound();
 
-            // Check date if activating
-            if (newPrice > 0)
+            // --- ADDED VALIDATION: Start Price > Min Price ---
+            // Allow 0 for deactivation logic
+            if (newPrice > 0 && product.MinPrijs.HasValue && newPrice <= product.MinPrijs.Value)
             {
-                var today = DateTime.Today;
-                if (!product.BeginDatum.HasValue || product.BeginDatum.Value.Date != today)
-                {
-                    return BadRequest($"Dit product kan niet geactiveerd worden. De startdatum is {product.BeginDatum?.ToShortDateString() ?? "onbekend"}, maar het is vandaag {today.ToShortDateString()}. Pas eerst de datum aan indien nodig.");
-                }
+                return BadRequest($"Startprijs moet hoger zijn dan de minimumprijs (€{product.MinPrijs})");
             }
+            // -------------------------------------------------
+
+            // MODIFICATION: Date validation check for 'today' is NOT present here, 
+            // allowing the Auction Master to price items for future dates.
 
             if (newPrice == 0)
             {
@@ -244,6 +242,19 @@ namespace backend.Controllers
                 return Ok(new List<Product>());
 
             return Ok(ProductenZonderStartprijs);
+        }
+
+        // --- NEW ENDPOINT: SCHEDULED PRODUCTS ---
+        [HttpGet("product/scheduled")]
+        public async Task<IActionResult> GetScheduledProducts()
+        {
+            // Returns products that are priced but scheduled for the future
+            var scheduledProducts = await _productService.GetScheduledProductsAsync();
+
+            if (scheduledProducts == null || scheduledProducts.Count == 0)
+                return Ok(new List<Product>());
+
+            return Ok(scheduledProducts);
         }
 
         [HttpGet("product/veilbarelijst")]
