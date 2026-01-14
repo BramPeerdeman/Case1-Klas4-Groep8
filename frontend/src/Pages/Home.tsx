@@ -106,9 +106,13 @@ export default function Home() {
       });
     });
 
-    connection.on("ReceiveAuctionResult", () => {
+    // Updated handler to remove sold items
+    connection.on("ReceiveAuctionResult", (result: any) => {
       setActiveAuction(null);
       setActiveProduct(null);
+      
+      // Remove the sold item from the grid immediately
+      setProducts((current) => current.filter(p => p.productID !== result.productId));
     });
 
     return () => {

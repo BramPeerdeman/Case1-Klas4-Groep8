@@ -28,6 +28,9 @@ export default function AdminPage() {
   
   const [inputPrijzen, setInputPrijzen] = useState<{ [key: number]: string }>({});
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  
+  // FIX: Store active queue IDs to filter them out of the list
+  const [activeQueueIds, setActiveQueueIds] = useState<number[]>([]);
 
   const { notify } = useNotification();
   const navigate = useNavigate();
@@ -54,12 +57,32 @@ export default function AdminPage() {
       if (resNew.ok) setNewProducts(await resNew.json());
       else setNewProducts([]);
 
-      // 2. Veilbare producten
+      // 2. Fetch Queue IDs (Active Queue)
+      let queueIds: number[] = [];
+      try {
+          const resQueue = await fetch(`${baseUrl}/api/Veiling/queue/ids`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          if (resQueue.ok) {
+              queueIds = await resQueue.json();
+              setActiveQueueIds(queueIds);
+          }
+      } catch (e) {
+          console.error("Failed to fetch queue ids", e);
+      }
+
+      // 3. Veilbare producten
       const resVeilbaar = await fetch(`${baseUrl}/api/Product/product/veilbarelijst`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      if (resVeilbaar.ok) setVeilbareProducts(await resVeilbaar.json());
-      else setVeilbareProducts([]);
+      if (resVeilbaar.ok) {
+          const allProducts = await resVeilbaar.json();
+          // FILTER: Only show products NOT currently in the active queue
+          const filtered = allProducts.filter((p: Product) => !queueIds.includes(p.productID));
+          setVeilbareProducts(filtered);
+      } else {
+          setVeilbareProducts([]);
+      }
 
     } catch (error) {
       console.error("Fout bij ophalen data:", error);
@@ -296,7 +319,7 @@ export default function AdminPage() {
 
         {veilbareProducts.length === 0 ? (
             <Typography variant="body2" color="text.secondary">
-                Geen producten gevonden voor de veiling van vandaag ({todayDate}).
+                Geen producten gevonden voor de veiling van vandaag ({todayDate}) of alle producten zitten al in de queue.
             </Typography>
         ) : (
             <TableContainer component={Paper} elevation={0}>

@@ -22,12 +22,15 @@ namespace backend.Controllers
     {
         private readonly AppDbContext _context;
         private readonly IProductService _productService;
+        private readonly IAuctionService _auctionService; // ADDED
         private readonly IWebHostEnvironment _environment;
 
-        public ProductController(AppDbContext context, IProductService productService, IWebHostEnvironment environment)
+        // Updated Constructor
+        public ProductController(AppDbContext context, IProductService productService, IAuctionService auctionService, IWebHostEnvironment environment)
         {
             _context = context;
             _productService = productService;
+            _auctionService = auctionService;
             _environment = environment;
         }
 
@@ -36,6 +39,8 @@ namespace backend.Controllers
         {
             var products = await _context.Producten
                 .AsNoTracking()
+                // FIX: Filter by Quantity so sold-out items disappear, even if KoperID is null
+                .Where(p => p.KoperID == null && p.Aantal > 0)
                 .ToListAsync();
             return Ok(products);
         }
@@ -122,6 +127,17 @@ namespace backend.Controllers
             if (product == null)
                 return NotFound("Product niet gevonden.");
 
+            // FIX 1: Prevent "Griefing" and History Deletion
+            if (product.IsAuctionable)
+            {
+                return BadRequest("Dit product staat ingepland voor de veiling of is live en kan niet worden verwijderd. Stop de verkoop eerst.");
+            }
+
+            if (!string.IsNullOrEmpty(product.KoperID))
+            {
+                return BadRequest("Dit product is al verkocht en kan niet worden verwijderd (nodig voor aankoopgeschiedenis).");
+            }
+
             if (product.VerkoperID != userId)
             {
                 return Forbid("U mag alleen uw eigen producten verwijderen.");
@@ -133,6 +149,30 @@ namespace backend.Controllers
             return Ok(new { message = "Product verwijderd" });
         }
 
+        // --- NEW ENDPOINT: STOP SALE ---
+        [HttpPut("product/{id}/stop")]
+        [Authorize(Roles = "veiler")]
+        public async Task<IActionResult> StopSelling(int id)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue(JwtRegisteredClaimNames.Sub);
+            var product = await _context.Producten.FindAsync(id);
+
+            if (product == null) return NotFound();
+
+            // Security check
+            if (product.VerkoperID != userId) return Forbid("Niet uw product");
+
+            // 1. Remove from Active Memory Queue (Important!)
+            _auctionService.RemoveFromQueue(id);
+
+            // 2. Update DB State
+            product.IsAuctionable = false;
+            product.StartPrijs = null; // Resetting start price effectively moves it back to "New" list for Admin
+
+            await _context.SaveChangesAsync();
+            return Ok(new { message = "Verkoop gestopt. Product is teruggezet naar concepten en uit de wachtrij gehaald." });
+        }
+
         [HttpPut("product/{id}")]
         public async Task<IActionResult> UpdateProduct(int id, [FromBody] Product updatedproduct)
         {
@@ -140,7 +180,15 @@ namespace backend.Controllers
             if (selectedproduct == null)
                 return NotFound();
 
+            // Existing logic
             selectedproduct.StartPrijs = updatedproduct.StartPrijs;
+
+            // FIX 3: Allow changing the date if it didn't sell
+            if (updatedproduct.BeginDatum != null)
+            {
+                selectedproduct.BeginDatum = updatedproduct.BeginDatum;
+            }
+
             await _context.SaveChangesAsync();
 
             return Ok(selectedproduct);
@@ -165,7 +213,7 @@ namespace backend.Controllers
                 var today = DateTime.Today;
                 if (!product.BeginDatum.HasValue || product.BeginDatum.Value.Date != today)
                 {
-                    return BadRequest($"Dit product kan niet geactiveerd worden. De startdatum is {product.BeginDatum?.ToShortDateString() ?? "onbekend"}, maar het is vandaag {today.ToShortDateString()}.");
+                    return BadRequest($"Dit product kan niet geactiveerd worden. De startdatum is {product.BeginDatum?.ToShortDateString() ?? "onbekend"}, maar het is vandaag {today.ToShortDateString()}. Pas eerst de datum aan indien nodig.");
                 }
             }
 
@@ -233,12 +281,10 @@ namespace backend.Controllers
             return Ok(myProducts);
         }
 
-        // --- UPDATED METHOD START ---
         [HttpGet("geschiedenis")]
         [Authorize]
         public async Task<IActionResult> GetAankoopGeschiedenis()
         {
-            // 1. Retrieve User ID from Claims
             var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
             if (string.IsNullOrEmpty(userId))
@@ -256,11 +302,10 @@ namespace backend.Controllers
                 return Unauthorized("De server kan uw User ID niet uit het token lezen.");
             }
 
-            // 2. Query Veiling table, Filter by KoperId, and Join with Product
             var history = await _context.Veilingen
                 .AsNoTracking()
-                .Where(v => v.KoperId == userId) // Filter auctions bought by this user
-                .Join(_context.Producten,        // Join with Product table
+                .Where(v => v.KoperId == userId)
+                .Join(_context.Producten,
                     veiling => veiling.ProductID,
                     product => product.ProductID,
                     (veiling, product) => new PurchaseHistoryDto
@@ -269,15 +314,14 @@ namespace backend.Controllers
                         Naam = product.Naam,
                         ImageUrl = product.ImageUrl,
                         Beschrijving = product.Beschrijving,
-                        VerkoopPrijs = veiling.VerkoopPrijs, // The actual price paid in the auction
-                        Aantal = veiling.Aantal,             // The quantity captured in the auction record
-                        Datum = veiling.StartDatumTijd       // Date of purchase
+                        VerkoopPrijs = veiling.VerkoopPrijs,
+                        Aantal = veiling.Aantal,
+                        Datum = veiling.StartDatumTijd
                     })
-                .OrderByDescending(dto => dto.Datum) // Most recent purchases first
+                .OrderByDescending(dto => dto.Datum)
                 .ToListAsync();
 
             return Ok(history);
         }
-        // --- UPDATED METHOD END ---
     }
 }

@@ -121,7 +121,7 @@ export default function Navbar() {
           <Button 
             color="inherit" 
             component={Link} 
-            to="/verkoper" 
+            to="/verkoper/producten" 
             sx={{ fontWeight: 'bold', color: 'lightgreen' }}
           >
             Verkoper Dashboard

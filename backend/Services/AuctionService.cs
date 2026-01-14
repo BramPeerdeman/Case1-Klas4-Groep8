@@ -26,7 +26,7 @@ namespace backend.Services
 
         public void AddToQueue(List<int> productIds)
         {
-            // VALIDATION: Only allow products scheduled for today
+            // VALIDATION: Allow products scheduled for today or earlier
             using (var scope = _scopeFactory.CreateScope())
             {
                 var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -35,7 +35,7 @@ namespace backend.Services
                 var validIds = context.Producten
                     .Where(p => productIds.Contains(p.ProductID) &&
                                 p.BeginDatum.HasValue &&
-                                p.BeginDatum.Value.Date == today &&
+                                p.BeginDatum.Value.Date <= today &&
                                 p.Aantal > 0 &&
                                 p.IsAuctionable)
                     .Select(p => p.ProductID)
@@ -54,6 +54,12 @@ namespace backend.Services
             {
                 _productQueue.Remove(productId);
             }
+        }
+
+        // --- NEW IMPLEMENTATION ---
+        public List<int> GetQueueIds()
+        {
+            return new List<int>(_productQueue);
         }
 
         public AuctionState? GetActiveAuction()
@@ -126,7 +132,6 @@ namespace backend.Services
             return auction ?? new AuctionState { ProductId = productId, IsRunning = false };
         }
 
-        // --- UPDATED METHOD IMPLEMENTATION ---
         public async Task<bool> PlaatsBod(int productId, string koperNaam, decimal bedrag, string koperId, int aantal)
         {
             var auction = _activeAuctions.FirstOrDefault(a => a.ProductId == productId);
@@ -168,6 +173,17 @@ namespace backend.Services
                 // Deduct Stock
                 prod.Aantal -= aantal;
 
+                // --- NEW LOGIC: Handle Partial Sales ---
+                if (prod.Aantal > 0)
+                {
+                    // If stock remains, re-add to the back of the queue
+                    if (!_productQueue.Contains(productId))
+                    {
+                        _productQueue.Add(productId);
+                    }
+                }
+                // ----------------------------------------
+
                 // Veiling loggen (Permanent Receipt)
                 var veiling = new Veiling
                 {
@@ -180,9 +196,6 @@ namespace backend.Services
                     KoperId = koperId
                 };
                 context.Veilingen.Add(veiling);
-
-                // Update Product status
-                // Refactor: Product only tracks stock. KoperID is not assigned to Product anymore.
 
                 // If stock is empty, it is no longer auctionable. 
                 if (prod.Aantal <= 0)
@@ -218,7 +231,6 @@ namespace backend.Services
 
             return true;
         }
-        // --- END OF UPDATED METHOD ---
 
         public async Task ForceNextAsync()
         {
