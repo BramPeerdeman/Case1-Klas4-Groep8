@@ -13,6 +13,7 @@ import ProtectedRoute from "./Components/ProtectedRoute";
 import Register from './Pages/Register';
 import AdminPage from "./Pages/AdminPage";
 import Settings from "./Pages/Settings";
+import ProfilePage from "./Pages/ProfilePage";
 import VeilingMeesterLive from "./Pages/VeilingMeesterLive";
 import { AuthProvider } from "./Contexts/AuthContext";
 import { useUser } from "./Contexts/UserContext";
@@ -47,6 +48,7 @@ function ThemedRoutes() {
           <Route path="/product/:id" element={<Detail />} />
           <Route path="/verkoper/producten" element={<ProtectedRoute requiredRole="veiler"><MyProducts /></ProtectedRoute>} />
           <Route path="/mijn-aankopen" element={<MijnAankopen />} />
+          <Route path="/profiel" element={<ProfilePage />} />
         </Route>
 
         <Route element={<AuthLayout />}>
