@@ -57,6 +57,8 @@ namespace backend.Services
                 var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
                 var today = DateTime.Today;
 
+                // CHECK: Strict date validation ensures future products are ignored here, 
+                // even if IsAuctionable was set to true by the controller.
                 var validIds = context.Producten
                     .Where(p => productIds.Contains(p.ProductID) &&
                                 p.BeginDatum.HasValue &&
@@ -137,10 +139,10 @@ namespace backend.Services
                 var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
                 var product = await db.Producten.FindAsync(productId);
 
-                if (product != null) 
+                if (product != null)
                 {
                     startPrijs = (decimal)product.StartPrijs;
-                    auction.MinPrice = product.MinPrijs ?? 0; 
+                    auction.MinPrice = product.MinPrijs ?? 0;
                 }
             }
 

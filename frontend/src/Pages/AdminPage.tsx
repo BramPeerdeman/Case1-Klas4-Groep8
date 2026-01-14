@@ -276,7 +276,7 @@ export default function AdminPage() {
                                 size="small"
                                 type="number"
                                 placeholder="0.00"
-                                disabled={!activeAllowed}
+                                // MODIFICATION: Removed disabled={!activeAllowed}
                                 value={inputPrijzen[p.productID] || ""}
                                 onChange={(e) => handlePriceChange(p.productID, e.target.value)}
                                 InputProps={{ startAdornment: <InputAdornment position="start">€</InputAdornment> }}
@@ -286,7 +286,8 @@ export default function AdminPage() {
                             <Button 
                                 variant="contained" size="small" startIcon={<SaveIcon />}
                                 onClick={() => handleActivateProduct(p)}
-                                disabled={!inputPrijzen[p.productID] || !activeAllowed}
+                                // MODIFICATION: Removed || !activeAllowed from disabled check
+                                disabled={!inputPrijzen[p.productID]}
                             >
                                 Activeer
                             </Button>

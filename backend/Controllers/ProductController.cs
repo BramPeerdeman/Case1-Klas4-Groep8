@@ -180,14 +180,25 @@ namespace backend.Controllers
             if (selectedproduct == null)
                 return NotFound();
 
-            // Existing logic
-            selectedproduct.StartPrijs = updatedproduct.StartPrijs;
+            // 1. Validation: Prevent editing if Live or Sold
+            if (selectedproduct.IsAuctionable || !string.IsNullOrEmpty(selectedproduct.KoperID))
+            {
+                return BadRequest("Product kan niet worden gewijzigd omdat het live staat of al verkocht is. Stop de verkoop eerst.");
+            }
 
-            // FIX 3: Allow changing the date if it didn't sell
+            // 2. Update allowed fields
+            selectedproduct.Naam = updatedproduct.Naam;
+            selectedproduct.Beschrijving = updatedproduct.Beschrijving;
+            selectedproduct.MinPrijs = updatedproduct.MinPrijs;
+            selectedproduct.Aantal = updatedproduct.Aantal;
+
+            // Allow rescheduling if needed
             if (updatedproduct.BeginDatum != null)
             {
                 selectedproduct.BeginDatum = updatedproduct.BeginDatum;
             }
+
+            // NOTE: StartPrijs is intentionally NOT updated here.
 
             await _context.SaveChangesAsync();
 
@@ -207,15 +218,8 @@ namespace backend.Controllers
             if (product == null)
                 return NotFound();
 
-            // Check date if activating
-            if (newPrice > 0)
-            {
-                var today = DateTime.Today;
-                if (!product.BeginDatum.HasValue || product.BeginDatum.Value.Date != today)
-                {
-                    return BadRequest($"Dit product kan niet geactiveerd worden. De startdatum is {product.BeginDatum?.ToShortDateString() ?? "onbekend"}, maar het is vandaag {today.ToShortDateString()}. Pas eerst de datum aan indien nodig.");
-                }
-            }
+            // MODIFICATION: Date validation removed. 
+            // Auction Master can now price/activate items scheduled for the future.
 
             if (newPrice == 0)
             {
