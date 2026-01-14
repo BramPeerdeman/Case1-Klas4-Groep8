@@ -35,7 +35,8 @@ namespace backend.Controllers
 
     public class MarketPriceRecordDto : PriceRecordDto
     {
-        public string SellerId { get; set; } = string.Empty;
+        // Changed from SellerId to SellerName for better UX
+        public string SellerName { get; set; } = string.Empty;
     }
 
     [ApiController]
@@ -82,7 +83,6 @@ namespace backend.Controllers
                     if (await reader.ReadAsync())
                     {
                         response.ProductName = reader.GetString(0);
-                        // Handle potential DBNull for VerkoperID
                         response.SupplierId = reader.IsDBNull(1) ? string.Empty : reader.GetString(1);
                     }
                     else
@@ -96,7 +96,6 @@ namespace backend.Controllers
                 // ---------------------------------------------------------
                 command.Parameters.Clear();
 
-                // Add parameters for Name and Supplier
                 var paramName = command.CreateParameter();
                 paramName.ParameterName = "@naam";
                 paramName.Value = response.ProductName;
@@ -124,7 +123,6 @@ namespace backend.Controllers
                         response.SupplierHistory.Records.Add(new PriceRecordDto
                         {
                             Date = reader.GetDateTime(0),
-                            // FIX: Use Convert.ToDouble to handle SQL 'real' (float) vs 'float' (double)
                             Price = Convert.ToDouble(reader.GetValue(1))
                         });
                     }
@@ -149,11 +147,13 @@ namespace backend.Controllers
                 // Step 3: Query 2 (Market Wide History)
                 // ---------------------------------------------------------
 
-                // A. Get Last 10 Records (Market)
+                // A. Get Last 10 Records (Market) - UPDATED QUERY
+                // We LEFT JOIN with Gebruikers to get the UserName
                 command.CommandText = @"
-                    SELECT TOP 10 v.StartDatumTijd, v.VerkoopPrijs, v.VerkoperID
+                    SELECT TOP 10 v.StartDatumTijd, v.VerkoopPrijs, g.UserName
                     FROM Veilingen v
                     JOIN Producten p ON v.ProductID = p.ProductID
+                    LEFT JOIN Gebruikers g ON v.VerkoperID = g.Id
                     WHERE p.Naam = @naam 
                       AND v.VerkoopPrijs IS NOT NULL
                     ORDER BY v.StartDatumTijd DESC";
@@ -165,9 +165,9 @@ namespace backend.Controllers
                         response.MarketHistory.Records.Add(new MarketPriceRecordDto
                         {
                             Date = reader.GetDateTime(0),
-                            // FIX: Use Convert.ToDouble here as well
                             Price = Convert.ToDouble(reader.GetValue(1)),
-                            SellerId = reader.IsDBNull(2) ? "Unknown" : reader.GetString(2)
+                            // Read UserName instead of SellerId
+                            SellerName = reader.IsDBNull(2) ? "Unknown" : reader.GetString(2)
                         });
                     }
                 }
