@@ -24,6 +24,31 @@ namespace backend.Services
             _hub = hub;
         }
 
+        public async Task TimeoutAuction(int productId)
+        {
+            var auction = _activeAuctions.FirstOrDefault(a => a.ProductId == productId);
+            if (auction != null && auction.IsRunning)
+            {
+                auction.IsRunning = false;
+
+                // Stuur bericht: Niet verkocht
+                await _hub.Clients.All.SendAsync("ReceiveAuctionResult", new
+                {
+                    productId = productId,
+                    sold = false,
+                    price = auction.CurrentPrice
+                });
+
+                // Als de queue aan staat, ga door
+                if (_isQueueRunning)
+                {
+                    _ = Task.Run(async () => {
+                        await Task.Delay(5000);
+                        await StartNextInQueue();
+                    });
+                }
+            }
+        }
         public void AddToQueue(List<int> productIds)
         {
             // VALIDATION: Allow products scheduled for today or earlier
@@ -106,12 +131,17 @@ namespace backend.Services
 
             // 1. Fetch Start Price from DB
             decimal startPrijs = 0;
+            // decimal minPrijs = 0;
             using (var scope = _scopeFactory.CreateScope())
             {
                 var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
                 var product = await db.Producten.FindAsync(productId);
 
-                if (product != null) startPrijs = (decimal)product.StartPrijs;
+                if (product != null) 
+                {
+                    startPrijs = (decimal)product.StartPrijs;
+                    auction.MinPrice = product.MinPrijs ?? 0; 
+                }
             }
 
             // 2. Initialize the in-memory current price
