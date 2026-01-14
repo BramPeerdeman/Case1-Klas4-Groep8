@@ -2,6 +2,7 @@ import { Card, CardMedia, CardContent, Typography, CardActions, Button, Box, Chi
 import { useNavigate } from "react-router-dom";
 import DeleteIcon from '@mui/icons-material/Delete';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
+import EditIcon from '@mui/icons-material/Edit';
 import { getImageUrl } from "../Utils/ImageUtils";
 
 interface ProductProps {
@@ -12,11 +13,13 @@ interface ProductProps {
     imageUrl?: string;
     locatie?: string;
     aantal?: number;
+    beginDatum?: string;
   };
   onDelete?: (id: number) => void; 
+  onEdit?: (id: number) => void;
 }
 
-const ProductCard: React.FC<ProductProps> = ({ product, onDelete }) => {
+const ProductCard: React.FC<ProductProps> = ({ product, onDelete, onEdit }) => {
   const navigate = useNavigate();
   
   return (
@@ -44,6 +47,13 @@ const ProductCard: React.FC<ProductProps> = ({ product, onDelete }) => {
         <Typography variant="h6" gutterBottom>{product.name}</Typography>
         
         {/* PRIJS IS HIER VERWIJDERD */}
+        
+        {/* Datum weergave (optioneel) */}
+        {product.beginDatum && (
+             <Typography variant="body2" color="text.secondary">
+                Datum: {new Date(product.beginDatum).toLocaleDateString()}
+             </Typography>
+        )}
 
         {/* Locatie */}
         {product.locatie && (
@@ -55,9 +65,22 @@ const ProductCard: React.FC<ProductProps> = ({ product, onDelete }) => {
       </CardContent>
       
       <CardActions sx={{ justifyContent: 'space-between', p: 2, pt: 0 }}>
-        <Button size="small" variant="contained" onClick={() => navigate(`/klok/${product.id}`)}>
-          Bekijken
-        </Button>
+        <Box>
+            <Button size="small" variant="contained" onClick={() => navigate(`/klok/${product.id}`)} sx={{ mr: 1 }}>
+            Bekijken
+            </Button>
+            
+            {onEdit && (
+                <Button 
+                    size="small" 
+                    variant="outlined" 
+                    startIcon={<EditIcon />}
+                    onClick={() => onEdit(product.id)}
+                >
+                    Wijzig
+                </Button>
+            )}
+        </Box>
 
         {onDelete && (
           <Button 

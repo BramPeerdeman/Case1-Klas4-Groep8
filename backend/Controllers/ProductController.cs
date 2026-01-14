@@ -36,6 +36,8 @@ namespace backend.Controllers
         {
             var products = await _context.Producten
                 .AsNoTracking()
+                // FIX 2: Filter out sold products to prevent clutter on Home Page
+                .Where(p => p.KoperID == null)
                 .ToListAsync();
             return Ok(products);
         }
@@ -122,6 +124,17 @@ namespace backend.Controllers
             if (product == null)
                 return NotFound("Product niet gevonden.");
 
+            // FIX 1: Prevent "Griefing" and History Deletion
+            if (product.IsAuctionable)
+            {
+                return BadRequest("Dit product staat ingepland voor de veiling of is live en kan niet worden verwijderd.");
+            }
+
+            if (!string.IsNullOrEmpty(product.KoperID))
+            {
+                return BadRequest("Dit product is al verkocht en kan niet worden verwijderd (nodig voor aankoopgeschiedenis).");
+            }
+
             if (product.VerkoperID != userId)
             {
                 return Forbid("U mag alleen uw eigen producten verwijderen.");
@@ -140,7 +153,20 @@ namespace backend.Controllers
             if (selectedproduct == null)
                 return NotFound();
 
+            // Existing logic
             selectedproduct.StartPrijs = updatedproduct.StartPrijs;
+
+            // FIX 3: Allow changing the date if it didn't sell
+            // This allows the seller to reschedule the product for a future date
+            if (updatedproduct.BeginDatum != null)
+            {
+                selectedproduct.BeginDatum = updatedproduct.BeginDatum;
+            }
+
+            // Optional: You might want to allow updating other fields too
+            // selectedproduct.Naam = updatedproduct.Naam;
+            // selectedproduct.Beschrijving = updatedproduct.Beschrijving;
+
             await _context.SaveChangesAsync();
 
             return Ok(selectedproduct);
@@ -163,9 +189,10 @@ namespace backend.Controllers
             if (newPrice > 0)
             {
                 var today = DateTime.Today;
+                // Note: The seller must ensure the date is set to Today (via UpdateProduct) before activating here
                 if (!product.BeginDatum.HasValue || product.BeginDatum.Value.Date != today)
                 {
-                    return BadRequest($"Dit product kan niet geactiveerd worden. De startdatum is {product.BeginDatum?.ToShortDateString() ?? "onbekend"}, maar het is vandaag {today.ToShortDateString()}.");
+                    return BadRequest($"Dit product kan niet geactiveerd worden. De startdatum is {product.BeginDatum?.ToShortDateString() ?? "onbekend"}, maar het is vandaag {today.ToShortDateString()}. Pas eerst de datum aan indien nodig.");
                 }
             }
 
@@ -233,12 +260,10 @@ namespace backend.Controllers
             return Ok(myProducts);
         }
 
-        // --- UPDATED METHOD START ---
         [HttpGet("geschiedenis")]
         [Authorize]
         public async Task<IActionResult> GetAankoopGeschiedenis()
         {
-            // 1. Retrieve User ID from Claims
             var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
             if (string.IsNullOrEmpty(userId))
@@ -256,11 +281,10 @@ namespace backend.Controllers
                 return Unauthorized("De server kan uw User ID niet uit het token lezen.");
             }
 
-            // 2. Query Veiling table, Filter by KoperId, and Join with Product
             var history = await _context.Veilingen
                 .AsNoTracking()
-                .Where(v => v.KoperId == userId) // Filter auctions bought by this user
-                .Join(_context.Producten,        // Join with Product table
+                .Where(v => v.KoperId == userId)
+                .Join(_context.Producten,
                     veiling => veiling.ProductID,
                     product => product.ProductID,
                     (veiling, product) => new PurchaseHistoryDto
@@ -269,15 +293,14 @@ namespace backend.Controllers
                         Naam = product.Naam,
                         ImageUrl = product.ImageUrl,
                         Beschrijving = product.Beschrijving,
-                        VerkoopPrijs = veiling.VerkoopPrijs, // The actual price paid in the auction
-                        Aantal = veiling.Aantal,             // The quantity captured in the auction record
-                        Datum = veiling.StartDatumTijd       // Date of purchase
+                        VerkoopPrijs = veiling.VerkoopPrijs,
+                        Aantal = veiling.Aantal,
+                        Datum = veiling.StartDatumTijd
                     })
-                .OrderByDescending(dto => dto.Datum) // Most recent purchases first
+                .OrderByDescending(dto => dto.Datum)
                 .ToListAsync();
 
             return Ok(history);
         }
-        // --- UPDATED METHOD END ---
     }
 }

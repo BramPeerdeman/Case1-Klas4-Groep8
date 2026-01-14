@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import { Container, Typography, Grid, Button, Box, Alert, CircularProgress } from "@mui/material";
+import { Container, Typography, Grid, Button, Box, Alert, CircularProgress, Dialog, DialogTitle, DialogContent, DialogActions, TextField } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import ProductCard from "../Components/ProductCard";
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
@@ -13,13 +13,20 @@ interface Product {
   minPrijs: number;
   imageUrl: string;
   beschrijving: string;
-  aantal: number; // Added field for quantity
+  aantal: number;
+  beginDatum: string; // Added field for date editing
 }
 
 export default function MyProducts() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  
+  // State for Editing
+  const [editProduct, setEditProduct] = useState<Product | null>(null);
+  const [newDate, setNewDate] = useState("");
+  const [openDialog, setOpenDialog] = useState(false);
+
   const navigate = useNavigate();
   const { notify } = useNotification();
   
@@ -27,6 +34,52 @@ export default function MyProducts() {
   const connectionRef = useRef<signalR.HubConnection | null>(null);
 
   const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5299';
+
+  // Open the edit dialog
+  const handleEditClick = (id: number) => {
+    const product = products.find(p => p.productID === id);
+    if (product) {
+        setEditProduct(product);
+        // Format date to YYYY-MM-DD for the input field
+        const dateStr = product.beginDatum ? new Date(product.beginDatum).toISOString().split('T')[0] : "";
+        setNewDate(dateStr);
+        setOpenDialog(true);
+    }
+  };
+
+  // Save the new date
+  const handleUpdateDate = async () => {
+    if (!editProduct || !newDate) return;
+
+    try {
+        const token = localStorage.getItem("token");
+        const response = await fetch(`${baseUrl}/api/Product/product/${editProduct.productID}`, {
+            method: "PUT",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${token}`
+            },
+            body: JSON.stringify({ ...editProduct, beginDatum: newDate })
+        });
+
+        if (response.ok) {
+            if (notify) notify("Datum aangepast!", "success");
+            
+            // Update local state
+            setProducts(prev => prev.map(p => 
+                p.productID === editProduct.productID ? { ...p, beginDatum: newDate } : p
+            ));
+            
+            setOpenDialog(false);
+            setEditProduct(null);
+        } else {
+            if (notify) notify("Kon datum niet aanpassen.", "error");
+        }
+    } catch (e) {
+        console.error(e);
+        if (notify) notify("Er ging iets mis.", "error");
+    }
+  };
 
   //Delete functionaliteit
   const handleDelete = async (id: number) => {
@@ -49,9 +102,10 @@ export default function MyProducts() {
         setProducts((prevProducts) => prevProducts.filter(p => p.productID !== id));
         if (notify) notify("Product verwijderd.", "success");
       } else {
+        // IMPROVED ERROR HANDLING
         const errMsg = await response.text();
         console.error("Delete failed:", errMsg);
-        if (notify) notify("Verwijderen mislukt.", "error");
+        if (notify) notify(errMsg || "Verwijderen mislukt.", "error");
       }
     } catch (error) {
       console.error("Network error:", error);
@@ -175,15 +229,40 @@ export default function MyProducts() {
                   // Use MinPrijs for seller view
                   price: product.minPrijs, 
                   imageUrl: product.imageUrl,
-                  aantal: product.aantal // Pass quantity to card
+                  aantal: product.aantal, // Pass quantity to card
+                  beginDatum: product.beginDatum
                 }}
                 // PASS THE DELETE FUNCTION
                 onDelete={handleDelete}
+                // PASS THE EDIT FUNCTION
+                onEdit={handleEditClick}
               />
             </Grid>
           ))}
         </Grid>
       )}
+
+      {/* EDIT DATE DIALOG */}
+      <Dialog open={openDialog} onClose={() => setOpenDialog(false)}>
+        <DialogTitle>Verplaats Veiling</DialogTitle>
+        <DialogContent>
+            <Typography variant="body2" sx={{mb: 2, mt: 1}}>
+                Kies een nieuwe startdatum voor <strong>{editProduct?.naam}</strong>.
+            </Typography>
+            <TextField
+                type="date"
+                fullWidth
+                variant="outlined"
+                value={newDate}
+                onChange={(e) => setNewDate(e.target.value)}
+            />
+        </DialogContent>
+        <DialogActions>
+            <Button onClick={() => setOpenDialog(false)}>Annuleren</Button>
+            <Button onClick={handleUpdateDate} variant="contained" color="primary">Opslaan</Button>
+        </DialogActions>
+      </Dialog>
+
     </Container>
   );
 }
