@@ -28,6 +28,14 @@ namespace backend.Controllers
             _auctionService = auctionService;
         }
 
+        // --- NEW ENDPOINT: Get active queue IDs ---
+        [HttpGet("queue/ids")]
+        public IActionResult GetQueueIds()
+        {
+            var ids = _auctionService.GetQueueIds();
+            return Ok(ids);
+        }
+
         [HttpPost("start/{id}")]
         [Authorize(Roles = "admin")]
         public async Task<IActionResult> StartVeiling(int id)

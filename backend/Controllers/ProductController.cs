@@ -22,12 +22,15 @@ namespace backend.Controllers
     {
         private readonly AppDbContext _context;
         private readonly IProductService _productService;
+        private readonly IAuctionService _auctionService; // ADDED
         private readonly IWebHostEnvironment _environment;
 
-        public ProductController(AppDbContext context, IProductService productService, IWebHostEnvironment environment)
+        // Updated Constructor
+        public ProductController(AppDbContext context, IProductService productService, IAuctionService auctionService, IWebHostEnvironment environment)
         {
             _context = context;
             _productService = productService;
+            _auctionService = auctionService;
             _environment = environment;
         }
 
@@ -36,8 +39,8 @@ namespace backend.Controllers
         {
             var products = await _context.Producten
                 .AsNoTracking()
-                // FIX 2: Filter out sold products to prevent clutter on Home Page
-                .Where(p => p.KoperID == null)
+                // FIX: Filter by Quantity so sold-out items disappear, even if KoperID is null
+                .Where(p => p.KoperID == null && p.Aantal > 0)
                 .ToListAsync();
             return Ok(products);
         }
@@ -127,7 +130,7 @@ namespace backend.Controllers
             // FIX 1: Prevent "Griefing" and History Deletion
             if (product.IsAuctionable)
             {
-                return BadRequest("Dit product staat ingepland voor de veiling of is live en kan niet worden verwijderd.");
+                return BadRequest("Dit product staat ingepland voor de veiling of is live en kan niet worden verwijderd. Stop de verkoop eerst.");
             }
 
             if (!string.IsNullOrEmpty(product.KoperID))
@@ -146,6 +149,30 @@ namespace backend.Controllers
             return Ok(new { message = "Product verwijderd" });
         }
 
+        // --- NEW ENDPOINT: STOP SALE ---
+        [HttpPut("product/{id}/stop")]
+        [Authorize(Roles = "veiler")]
+        public async Task<IActionResult> StopSelling(int id)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue(JwtRegisteredClaimNames.Sub);
+            var product = await _context.Producten.FindAsync(id);
+
+            if (product == null) return NotFound();
+
+            // Security check
+            if (product.VerkoperID != userId) return Forbid("Niet uw product");
+
+            // 1. Remove from Active Memory Queue (Important!)
+            _auctionService.RemoveFromQueue(id);
+
+            // 2. Update DB State
+            product.IsAuctionable = false;
+            product.StartPrijs = null; // Resetting start price effectively moves it back to "New" list for Admin
+
+            await _context.SaveChangesAsync();
+            return Ok(new { message = "Verkoop gestopt. Product is teruggezet naar concepten en uit de wachtrij gehaald." });
+        }
+
         [HttpPut("product/{id}")]
         public async Task<IActionResult> UpdateProduct(int id, [FromBody] Product updatedproduct)
         {
@@ -157,15 +184,10 @@ namespace backend.Controllers
             selectedproduct.StartPrijs = updatedproduct.StartPrijs;
 
             // FIX 3: Allow changing the date if it didn't sell
-            // This allows the seller to reschedule the product for a future date
             if (updatedproduct.BeginDatum != null)
             {
                 selectedproduct.BeginDatum = updatedproduct.BeginDatum;
             }
-
-            // Optional: You might want to allow updating other fields too
-            // selectedproduct.Naam = updatedproduct.Naam;
-            // selectedproduct.Beschrijving = updatedproduct.Beschrijving;
 
             await _context.SaveChangesAsync();
 
@@ -189,7 +211,6 @@ namespace backend.Controllers
             if (newPrice > 0)
             {
                 var today = DateTime.Today;
-                // Note: The seller must ensure the date is set to Today (via UpdateProduct) before activating here
                 if (!product.BeginDatum.HasValue || product.BeginDatum.Value.Date != today)
                 {
                     return BadRequest($"Dit product kan niet geactiveerd worden. De startdatum is {product.BeginDatum?.ToShortDateString() ?? "onbekend"}, maar het is vandaag {today.ToShortDateString()}. Pas eerst de datum aan indien nodig.");

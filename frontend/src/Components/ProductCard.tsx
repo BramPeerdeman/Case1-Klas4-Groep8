@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import DeleteIcon from '@mui/icons-material/Delete';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import EditIcon from '@mui/icons-material/Edit';
+import StopCircleIcon from '@mui/icons-material/StopCircle';
 import { getImageUrl } from "../Utils/ImageUtils";
 
 interface ProductProps {
@@ -14,12 +15,14 @@ interface ProductProps {
     locatie?: string;
     aantal?: number;
     beginDatum?: string;
+    isAuctionable?: boolean; // New optional prop
   };
   onDelete?: (id: number) => void; 
   onEdit?: (id: number) => void;
+  onStop?: (id: number) => void; // New optional handler
 }
 
-const ProductCard: React.FC<ProductProps> = ({ product, onDelete, onEdit }) => {
+const ProductCard: React.FC<ProductProps> = ({ product, onDelete, onEdit, onStop }) => {
   const navigate = useNavigate();
   
   return (
@@ -35,6 +38,16 @@ const ProductCard: React.FC<ProductProps> = ({ product, onDelete, onEdit }) => {
         />
       )}
 
+      {/* Live Status Label */}
+      {product.isAuctionable && (
+        <Chip 
+            label="Live / In Wachtrij" 
+            color="success" 
+            size="small" 
+            sx={{ position: 'absolute', top: 10, left: 10, zIndex: 1 }} 
+        />
+      )}
+
       <CardMedia 
         component="img" 
         image={getImageUrl(product.imageUrl)} 
@@ -45,8 +58,6 @@ const ProductCard: React.FC<ProductProps> = ({ product, onDelete, onEdit }) => {
       
       <CardContent sx={{ flexGrow: 1 }}>
         <Typography variant="h6" gutterBottom>{product.name}</Typography>
-        
-        {/* PRIJS IS HIER VERWIJDERD */}
         
         {/* Datum weergave (optioneel) */}
         {product.beginDatum && (
@@ -64,9 +75,9 @@ const ProductCard: React.FC<ProductProps> = ({ product, onDelete, onEdit }) => {
         )}
       </CardContent>
       
-      <CardActions sx={{ justifyContent: 'space-between', p: 2, pt: 0 }}>
-        <Box>
-            <Button size="small" variant="contained" onClick={() => navigate(`/klok/${product.id}`)} sx={{ mr: 1 }}>
+      <CardActions sx={{ justifyContent: 'space-between', p: 2, pt: 0, flexWrap: 'wrap', gap: 1 }}>
+        <Box display="flex" gap={1}>
+            <Button size="small" variant="contained" onClick={() => navigate(`/klok/${product.id}`)}>
             Bekijken
             </Button>
             
@@ -76,23 +87,40 @@ const ProductCard: React.FC<ProductProps> = ({ product, onDelete, onEdit }) => {
                     variant="outlined" 
                     startIcon={<EditIcon />}
                     onClick={() => onEdit(product.id)}
+                    disabled={product.isAuctionable} // Disable edit if live, or force stop first
                 >
                     Wijzig
                 </Button>
             )}
         </Box>
 
-        {onDelete && (
-          <Button 
-            size="small" 
-            variant="outlined" 
-            color="error" 
-            startIcon={<DeleteIcon />}
-            onClick={() => onDelete(product.id)}
-          >
-            Verwijder
-          </Button>
-        )}
+        <Box display="flex" gap={1}>
+            {/* New STOP Button */}
+            {onStop && product.isAuctionable && (
+                <Button 
+                    size="small"
+                    variant="contained"
+                    color="warning"
+                    startIcon={<StopCircleIcon />}
+                    onClick={() => onStop(product.id)}
+                >
+                    Stop
+                </Button>
+            )}
+
+            {onDelete && (
+            <Button 
+                size="small" 
+                variant="outlined" 
+                color="error" 
+                startIcon={<DeleteIcon />}
+                onClick={() => onDelete(product.id)}
+                disabled={product.isAuctionable} // Disable delete if live, allow stop first
+            >
+                Verwijder
+            </Button>
+            )}
+        </Box>
       </CardActions>
     </Card>
   );

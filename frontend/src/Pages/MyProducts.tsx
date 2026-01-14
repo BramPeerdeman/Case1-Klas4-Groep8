@@ -14,7 +14,8 @@ interface Product {
   imageUrl: string;
   beschrijving: string;
   aantal: number;
-  beginDatum: string; // Added field for date editing
+  beginDatum: string;
+  isAuctionable: boolean; // ADDED
 }
 
 export default function MyProducts() {
@@ -81,6 +82,33 @@ export default function MyProducts() {
     }
   };
 
+  // Stop Sale functionality
+  const handleStopSale = async (id: number) => {
+      if(!confirm("Weet u zeker dat u de verkoop wilt stoppen? Het product wordt teruggezet naar uw lijst als concept.")) return;
+
+      const token = localStorage.getItem("token");
+      try {
+          const response = await fetch(`${baseUrl}/api/Product/product/${id}/stop`, {
+              method: 'PUT',
+              headers: { "Authorization": `Bearer ${token}` }
+          });
+
+          if(response.ok) {
+              notify("Verkoop gestopt. Product is nu 'Onveilbaar'.", "info");
+              // Update local state: set isAuctionable to false
+              setProducts(prev => prev.map(p => 
+                  p.productID === id ? { ...p, isAuctionable: false } : p
+              ));
+          } else {
+              const err = await response.text();
+              notify("Fout: " + err, "error");
+          }
+      } catch(e) {
+          console.error(e);
+          notify("Netwerkfout bij stoppen verkoop.", "error");
+      }
+  };
+
   //Delete functionaliteit
   const handleDelete = async (id: number) => {
     if (!window.confirm("Weet u zeker dat u dit product wilt verwijderen?")) {
@@ -102,7 +130,6 @@ export default function MyProducts() {
         setProducts((prevProducts) => prevProducts.filter(p => p.productID !== id));
         if (notify) notify("Product verwijderd.", "success");
       } else {
-        // IMPROVED ERROR HANDLING
         const errMsg = await response.text();
         console.error("Delete failed:", errMsg);
         if (notify) notify(errMsg || "Verwijderen mislukt.", "error");
@@ -121,7 +148,7 @@ export default function MyProducts() {
         const response = await fetch(`${baseUrl}/api/Product/my-products`, {
           method: "GET",
           headers: {
-            "Authorization": `Bearer ${token}`, // Crucial: Send the token so backend knows who you are
+            "Authorization": `Bearer ${token}`,
             "Content-Type": "application/json"
           }
         });
@@ -155,23 +182,15 @@ export default function MyProducts() {
         .catch(err => console.error("SignalR Connection Error: ", err));
 
     connection.on("ReceiveAuctionResult", (data: any) => {
-        // data structure: { productId, sold, buyer, price, amount, ... }
-        
         setProducts(currentProducts => {
-            // Check if the sold product is in our list
             const exists = currentProducts.find(p => p.productID === data.productId);
-            if (!exists) return currentProducts; // Not one of our products
+            if (!exists) return currentProducts; 
 
-            // Update the specific product
             return currentProducts.map(p => {
                 if (p.productID === data.productId) {
                     const soldAmount = data.amount || 1;
                     const newStock = (p.aantal || 0) - soldAmount;
-
-                    // If stock is depleted, remove from list (return null to filter out)
                     if (newStock <= 0) return null;
-                    
-                    // Otherwise update count
                     return { ...p, aantal: newStock };
                 }
                 return p;
@@ -197,7 +216,7 @@ export default function MyProducts() {
         <Box>
           <Button 
             startIcon={<ArrowBackIcon />} 
-            onClick={() => navigate('/verkoper')} // Back to Dashboard/Add page
+            onClick={() => navigate('/verkoper')} 
             sx={{ mr: 2 }}
           >
             Terug
@@ -221,21 +240,20 @@ export default function MyProducts() {
       ) :  (
         <Grid container spacing={3}>
           {products.map((product) => (
-            <Grid size={{xs:12, sm:6, md:4}} key={product.productID}>
+            <Grid size = {{xs: 12, sm: 6, md: 4}} key={product.productID}>
               <ProductCard 
                 product={{
                   id: product.productID,
                   name: product.naam,
-                  // Use MinPrijs for seller view
                   price: product.minPrijs, 
                   imageUrl: product.imageUrl,
-                  aantal: product.aantal, // Pass quantity to card
-                  beginDatum: product.beginDatum
+                  aantal: product.aantal, 
+                  beginDatum: product.beginDatum,
+                  isAuctionable: product.isAuctionable // Pass new prop
                 }}
-                // PASS THE DELETE FUNCTION
                 onDelete={handleDelete}
-                // PASS THE EDIT FUNCTION
                 onEdit={handleEditClick}
+                onStop={handleStopSale} // Pass stop handler
               />
             </Grid>
           ))}

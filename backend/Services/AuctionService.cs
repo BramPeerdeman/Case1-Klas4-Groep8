@@ -56,6 +56,12 @@ namespace backend.Services
             }
         }
 
+        // --- NEW IMPLEMENTATION ---
+        public List<int> GetQueueIds()
+        {
+            return new List<int>(_productQueue);
+        }
+
         public AuctionState? GetActiveAuction()
         {
             return _activeAuctions.FirstOrDefault(a => a.IsRunning);
