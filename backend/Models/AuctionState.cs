@@ -11,5 +11,7 @@
 
         // NEW: Track the live price in memory
         public decimal CurrentPrice { get; set; }
+
+        public decimal MinPrice { get; set; }
     }
 }
