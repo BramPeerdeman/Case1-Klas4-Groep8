@@ -204,6 +204,14 @@ namespace backend.Controllers
             if (product == null)
                 return NotFound();
 
+            // --- ADDED VALIDATION: Start Price > Min Price ---
+            // Allow 0 for deactivation logic
+            if (newPrice > 0 && product.MinPrijs.HasValue && newPrice <= product.MinPrijs.Value)
+            {
+                return BadRequest($"Startprijs moet hoger zijn dan de minimumprijs (€{product.MinPrijs})");
+            }
+            // -------------------------------------------------
+
             // MODIFICATION: Date validation check for 'today' is NOT present here, 
             // allowing the Auction Master to price items for future dates.
 

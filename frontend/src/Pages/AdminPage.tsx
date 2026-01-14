@@ -105,10 +105,19 @@ export default function AdminPage() {
 
   const handleActivateProduct = async (product: Product) => {
     const prijs = inputPrijzen[product.productID];
+    
+    // Basic validation
     if (!prijs || Number(prijs) <= 0) {
       notify("Voer een geldige prijs in.", "error");
       return;
     }
+
+    // --- NEW VALIDATION: Start Price must be > Min Price ---
+    if (Number(prijs) <= product.minPrijs) {
+        notify(`Startprijs moet hoger zijn dan de minimumprijs (€${product.minPrijs})`, "warning");
+        return;
+    }
+    // -------------------------------------------------------
 
     try {
         const token = localStorage.getItem("token");
@@ -406,13 +415,15 @@ export default function AdminPage() {
                     <TableCell sx={{ fontWeight: 'bold' }}>€ {p.startPrijs}</TableCell>
                     <TableCell><Chip label="Klaar" color="success" size="small" /></TableCell>
                     <TableCell>
+                        {/* CHANGED FROM DELETE to DE-ACTIVEER/UNDO for consistency */}
                         <Button 
-                            color="error" 
+                            variant="outlined"
+                            color="warning" 
                             size="small"
-                            startIcon={<DeleteIcon />}
-                            onClick={() => handleDeactivate(p)} // Changed to share logic
+                            startIcon={<UndoIcon />}
+                            onClick={() => handleDeactivate(p)} 
                         >
-                            Verwijder
+                            De-activeer
                         </Button>
                     </TableCell>
                     </TableRow>
