@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Hosting; // <--- Nodig voor Environment
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders; // Nodig voor de Fake
+using Moq;
 using System.Reflection;
 using Xunit;
 
@@ -63,8 +64,10 @@ namespace backend.Controllers.Tests
             ProductService productService = GetProductService();
             var fakeEnv = GetFakeEnvironment();
 
-            // UPDATE: Constructor heeft nu 3 parameters
-            var controller = new ProductController(context, productService, fakeEnv);
+            var mockService = new Mock<IAuctionService>();
+            IAuctionService auctionService = mockService.Object;
+
+            var controller = new ProductController(context, productService, auctionService, fakeEnv);
 
             // UPDATE: We gebruiken nu de DTO in plaats van het Model als input
             var newProductDto = new ProductCreateDto
@@ -112,7 +115,10 @@ namespace backend.Controllers.Tests
             using var context = GetInMemoryDbContext();
             ProductService productService = GetProductService();
             var fakeEnv = GetFakeEnvironment();
-            var controller = new ProductController(context, productService, fakeEnv);
+            var mockService = new Mock<IAuctionService>();
+            IAuctionService auctionService = mockService.Object;
+
+            var controller = new ProductController(context, productService, auctionService, fakeEnv);
 
             // Manually trigger validation error
             controller.ModelState.AddModelError("Naam", "The Naam field is required.");
@@ -139,7 +145,10 @@ namespace backend.Controllers.Tests
             await context.SaveChangesAsync();
 
             // Constructor update
-            var controller = new ProductController(context, productService, GetFakeEnvironment());
+            var mockService = new Mock<IAuctionService>();
+            IAuctionService auctionService = mockService.Object;
+
+            var controller = new ProductController(context, productService, auctionService, GetFakeEnvironment());
 
             // Act
             var result = await controller.GetUnassignedProducts();
@@ -169,7 +178,10 @@ namespace backend.Controllers.Tests
             await dbContext.SaveChangesAsync();
 
             // Constructor update
-            var controller = new ProductController(dbContext, productService, GetFakeEnvironment());
+            var mockService = new Mock<IAuctionService>();
+            IAuctionService auctionService = mockService.Object;
+
+            var controller = new ProductController(dbContext, productService, auctionService, GetFakeEnvironment()); ;
 
             // Act
             var result = await controller.UpdateProductPrice(1, 25);
@@ -187,7 +199,10 @@ namespace backend.Controllers.Tests
             using var dbContext = GetInMemoryDbContext();
             ProductService productService = GetProductService();
             // Constructor update
-            var controller = new ProductController(dbContext, productService, GetFakeEnvironment());
+            var mockService = new Mock<IAuctionService>();
+            IAuctionService auctionService = mockService.Object;
+
+            var controller = new ProductController(dbContext, productService, auctionService, GetFakeEnvironment());
 
             var result = await controller.UpdateProductPrice(99, 50);
 
@@ -216,7 +231,10 @@ namespace backend.Controllers.Tests
             {
                 var productService = new Services.ProductService(context);
                 // Constructor update
-                var controller = new ProductController(context, productService, new FakeWebHostEnvironment());
+                var mockService = new Mock<IAuctionService>();
+                IAuctionService auctionService = mockService.Object;
+
+                var controller = new ProductController(context, productService, auctionService, new FakeWebHostEnvironment());
 
                 var result = await controller.UpdateProductPrice(1, -10);
 
@@ -248,7 +266,10 @@ namespace backend.Controllers.Tests
             using (var context = new AppDbContext(options))
             {
                 // Constructor update
-                var controller = new ProductController(context, new ProductService(context), new FakeWebHostEnvironment());
+                var mockService = new Mock<IAuctionService>();
+                IAuctionService auctionService = mockService.Object;
+
+                var controller = new ProductController(context, new ProductService(context), auctionService, new FakeWebHostEnvironment());
 
                 var result = await controller.UpdateProductPrice(1, 75);
 
