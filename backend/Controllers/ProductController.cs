@@ -9,6 +9,10 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using System;
 
 namespace backend.Controllers
 {
@@ -18,12 +22,14 @@ namespace backend.Controllers
     {
         private readonly AppDbContext _context;
         private readonly IProductService _productService;
+        private readonly IAuctionService _auctionService;
         private readonly IWebHostEnvironment _environment;
 
-        public ProductController(AppDbContext context, IProductService productService, IWebHostEnvironment environment)
+        public ProductController(AppDbContext context, IProductService productService, IAuctionService auctionService, IWebHostEnvironment environment)
         {
             _context = context;
             _productService = productService;
+            _auctionService = auctionService;
             _environment = environment;
         }
 
@@ -32,6 +38,7 @@ namespace backend.Controllers
         {
             var products = await _context.Producten
                 .AsNoTracking()
+                .Where(p => p.KoperID == null && p.Aantal > 0)
                 .ToListAsync();
             return Ok(products);
         }
@@ -61,40 +68,33 @@ namespace backend.Controllers
             if (string.IsNullOrEmpty(userId))
                 return Unauthorized("Kan de gebruikers-ID niet vinden.");
 
-            // --- FILE UPLOAD LOGICA ---
             string? dbPath = null;
 
             if (input.ImageFile != null)
             {
-                // FIX: Fallback if WebRootPath is null (happens in tests or if wwwroot missing)
                 string webRoot = _environment.WebRootPath ?? Path.Combine(_environment.ContentRootPath, "wwwroot");
                 string uploadsFolder = Path.Combine(webRoot, "uploads");
 
-                // Map maken indien nodig
                 if (!Directory.Exists(uploadsFolder))
                     Directory.CreateDirectory(uploadsFolder);
 
-                // Unieke naam genereren
                 string uniqueFileName = Guid.NewGuid().ToString() + "_" + input.ImageFile.FileName;
                 string filePath = Path.Combine(uploadsFolder, uniqueFileName);
 
-                // Opslaan
                 using (var fileStream = new FileStream(filePath, FileMode.Create))
                 {
                     await input.ImageFile.CopyToAsync(fileStream);
                 }
 
-                // Pad opslaan voor in de database
                 dbPath = $"/uploads/{uniqueFileName}";
             }
 
-            // --- PRODUCT AANMAKEN ---
             var product = new Product
             {
                 Naam = input.Naam,
                 Beschrijving = input.Beschrijving,
                 MinPrijs = input.MinPrijs,
-                Aantal = input.Aantal,      // Nieuw Veld (Merged)
+                Aantal = input.Aantal,
                 Locatie = input.Locatie,
                 BeginDatum = input.BeginDatum,
                 ImageUrl = dbPath,
@@ -123,6 +123,16 @@ namespace backend.Controllers
             if (product == null)
                 return NotFound("Product niet gevonden.");
 
+            if (product.IsAuctionable)
+            {
+                return BadRequest("Dit product staat ingepland voor de veiling of is live en kan niet worden verwijderd. Stop de verkoop eerst.");
+            }
+
+            if (!string.IsNullOrEmpty(product.KoperID))
+            {
+                return BadRequest("Dit product is al verkocht en kan niet worden verwijderd (nodig voor aankoopgeschiedenis).");
+            }
+
             if (product.VerkoperID != userId)
             {
                 return Forbid("U mag alleen uw eigen producten verwijderen.");
@@ -134,6 +144,26 @@ namespace backend.Controllers
             return Ok(new { message = "Product verwijderd" });
         }
 
+        [HttpPut("product/{id}/stop")]
+        [Authorize(Roles = "veiler")]
+        public async Task<IActionResult> StopSelling(int id)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue(JwtRegisteredClaimNames.Sub);
+            var product = await _context.Producten.FindAsync(id);
+
+            if (product == null) return NotFound();
+
+            if (product.VerkoperID != userId) return Forbid("Niet uw product");
+
+            _auctionService.RemoveFromQueue(id);
+
+            product.IsAuctionable = false;
+            product.StartPrijs = null;
+
+            await _context.SaveChangesAsync();
+            return Ok(new { message = "Verkoop gestopt. Product is teruggezet naar concepten en uit de wachtrij gehaald." });
+        }
+
         [HttpPut("product/{id}")]
         public async Task<IActionResult> UpdateProduct(int id, [FromBody] Product updatedproduct)
         {
@@ -141,7 +171,21 @@ namespace backend.Controllers
             if (selectedproduct == null)
                 return NotFound();
 
-            selectedproduct.StartPrijs = updatedproduct.StartPrijs;
+            if (selectedproduct.IsAuctionable || !string.IsNullOrEmpty(selectedproduct.KoperID))
+            {
+                return BadRequest("Product kan niet worden gewijzigd omdat het live staat of al verkocht is. Stop de verkoop eerst.");
+            }
+
+            selectedproduct.Naam = updatedproduct.Naam;
+            selectedproduct.Beschrijving = updatedproduct.Beschrijving;
+            selectedproduct.MinPrijs = updatedproduct.MinPrijs;
+            selectedproduct.Aantal = updatedproduct.Aantal;
+
+            if (updatedproduct.BeginDatum != null)
+            {
+                selectedproduct.BeginDatum = updatedproduct.BeginDatum;
+            }
+
             await _context.SaveChangesAsync();
 
             return Ok(selectedproduct);
@@ -160,17 +204,17 @@ namespace backend.Controllers
             if (product == null)
                 return NotFound();
 
-            // Check date if activating
-            if (newPrice > 0)
+            // --- ADDED VALIDATION: Start Price > Min Price ---
+            // Allow 0 for deactivation logic
+            if (newPrice > 0 && product.MinPrijs.HasValue && newPrice <= product.MinPrijs.Value)
             {
-                var today = DateTime.Today;
-                if (!product.BeginDatum.HasValue || product.BeginDatum.Value.Date != today)
-                {
-                    return BadRequest($"Dit product kan niet geactiveerd worden. De startdatum is {product.BeginDatum?.ToShortDateString() ?? "onbekend"}, maar het is vandaag {today.ToShortDateString()}.");
-                }
+                return BadRequest($"Startprijs moet hoger zijn dan de minimumprijs (€{product.MinPrijs})");
             }
+            // -------------------------------------------------
 
-            // Reset to null if 0
+            // MODIFICATION: Date validation check for 'today' is NOT present here, 
+            // allowing the Auction Master to price items for future dates.
+
             if (newPrice == 0)
             {
                 product.StartPrijs = null;
@@ -179,7 +223,6 @@ namespace backend.Controllers
             else
             {
                 product.StartPrijs = newPrice;
-                // FIX: Explicitly set IsAuctionable to true when a valid price is assigned
                 product.IsAuctionable = true;
             }
 
@@ -199,6 +242,19 @@ namespace backend.Controllers
                 return Ok(new List<Product>());
 
             return Ok(ProductenZonderStartprijs);
+        }
+
+        // --- NEW ENDPOINT: SCHEDULED PRODUCTS ---
+        [HttpGet("product/scheduled")]
+        public async Task<IActionResult> GetScheduledProducts()
+        {
+            // Returns products that are priced but scheduled for the future
+            var scheduledProducts = await _productService.GetScheduledProductsAsync();
+
+            if (scheduledProducts == null || scheduledProducts.Count == 0)
+                return Ok(new List<Product>());
+
+            return Ok(scheduledProducts);
         }
 
         [HttpGet("product/veilbarelijst")]
@@ -240,13 +296,11 @@ namespace backend.Controllers
         [Authorize]
         public async Task<IActionResult> GetAankoopGeschiedenis()
         {
-            Console.WriteLine("--- DEBUG: Geschiedenis wordt opgevraagd ---");
-
             var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
             if (string.IsNullOrEmpty(userId))
             {
-                userId = User.FindFirst("sub")?.Value;
+                userId = User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
             }
 
             if (string.IsNullOrEmpty(userId))
@@ -259,13 +313,26 @@ namespace backend.Controllers
                 return Unauthorized("De server kan uw User ID niet uit het token lezen.");
             }
 
-            var gekochteProducten = await _context.Producten
-                .Where(p => p.KoperID == userId)
-                .OrderByDescending(p => p.EindDatum)
+            var history = await _context.Veilingen
                 .AsNoTracking()
+                .Where(v => v.KoperId == userId)
+                .Join(_context.Producten,
+                    veiling => veiling.ProductID,
+                    product => product.ProductID,
+                    (veiling, product) => new PurchaseHistoryDto
+                    {
+                        ProductID = product.ProductID,
+                        Naam = product.Naam,
+                        ImageUrl = product.ImageUrl,
+                        Beschrijving = product.Beschrijving,
+                        VerkoopPrijs = veiling.VerkoopPrijs,
+                        Aantal = veiling.Aantal,
+                        Datum = veiling.StartDatumTijd
+                    })
+                .OrderByDescending(dto => dto.Datum)
                 .ToListAsync();
 
-            return Ok(gekochteProducten);
+            return Ok(history);
         }
     }
 }

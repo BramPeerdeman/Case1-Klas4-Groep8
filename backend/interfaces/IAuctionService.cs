@@ -22,6 +22,11 @@ namespace backend.interfaces
 
         Task ForceNextAsync();
 
+        Task TimeoutAuction(int productId);
+
         void RemoveFromQueue(int productId);
+
+        // --- New Method ---
+        List<int> GetQueueIds();
     }
 }

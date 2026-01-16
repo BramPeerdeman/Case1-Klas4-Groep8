@@ -23,7 +23,7 @@ export default function Navbar() {
   const handleMenuClose = () => setAnchorEl(null);
   const handleProfile = () => {
     handleMenuClose();
-    navigate("/profile");
+    navigate("/profiel");
   };
   const handleLoginLogout = () => {
     handleMenuClose();
@@ -121,7 +121,7 @@ export default function Navbar() {
           <Button 
             color="inherit" 
             component={Link} 
-            to="/verkoper" 
+            to="/verkoper/producten" 
             sx={{ fontWeight: 'bold', color: 'lightgreen' }}
           >
             Verkoper Dashboard

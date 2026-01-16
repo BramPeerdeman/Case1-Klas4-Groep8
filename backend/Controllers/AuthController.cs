@@ -9,6 +9,7 @@ using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
 
+
 namespace backend.Controllers;
 [ApiController]
 [Route("api/[controller]")]
@@ -156,7 +157,91 @@ public class AuthController : ControllerBase
 
     //    return Ok(new { Message = "Settings updated." });
     //}
+    [Authorize]
+    [HttpPut("update-profiel")]
+    public async Task<IActionResult> UpdateProfiel([FromBody] UpdateProfielDto model)
+    {
+        // 1. Wie is er ingelogd? (Haal ID uit het token)
+        var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        
+        
+        if (string.IsNullOrEmpty(userId)) userId = User.FindFirst("sub")?.Value;
+        if (string.IsNullOrEmpty(userId)) userId = User.FindFirst("id")?.Value;
 
+        if (userId == null) return Unauthorized("Kan gebruiker niet identificeren.");
+
+        //  Zoek de gebruiker in de Database
+        var user = await _userManager.FindByIdAsync(userId);
+        if (user == null) return NotFound("Gebruiker niet gevonden.");
+
+        //  Update gegevens (alleen als er iets is ingevuld)
+        if (!string.IsNullOrEmpty(model.NieuweGebruikersnaam))
+        {
+            // Check of de naam niet al bezet is door IEMAND ANDERS
+            var existingUser = await _userManager.FindByNameAsync(model.NieuweGebruikersnaam);
+            if (existingUser != null && existingUser.Id != userId)
+            {
+                return BadRequest("Deze gebruikersnaam is al in gebruik.");
+            }
+            user.UserName = model.NieuweGebruikersnaam;
+        }
+
+        if (!string.IsNullOrEmpty(model.NieuweEmail))
+        {
+            user.Email = model.NieuweEmail;
+        }
+
+        //  Wachtwoord wijzigen 
+        if (!string.IsNullOrEmpty(model.NieuwWachtwoord))
+        {
+            // Check: Heeft de gebruiker zijn oude wachtwoord wel ingevuld?
+            if (string.IsNullOrEmpty(model.HuidigWachtwoord))
+            {
+                return BadRequest("Vul uw huidige wachtwoord in om het te kunnen wijzigen.");
+            }
+
+            // Deze functie checkt of HuidigWachtwoord klopt, en zet dan de nieuwe
+            var changePassResult = await _userManager.ChangePasswordAsync(user, model.HuidigWachtwoord, model.NieuwWachtwoord);
+            
+            if (!changePassResult.Succeeded)
+            {
+                // Hier komt hij als het oude wachtwoord fout is, of het nieuwe te zwak
+                return BadRequest(changePassResult.Errors);
+            }
+        }
+
+        //  Opslaan in Database
+        var result = await _userManager.UpdateAsync(user);
+
+        if (result.Succeeded)
+        {
+            return Ok(new { message = "Profiel succesvol bijgewerkt!" });
+        }
+
+        return BadRequest(result.Errors);
+    }
+    [HttpGet("me")]
+    [Authorize]
+    public async Task<IActionResult> GetMijnGegevens()
+    {
+        var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        if (userId == null) userId = User.FindFirst("sub")?.Value;
+
+        if (userId == null) return Unauthorized();
+
+        var user = await _userManager.FindByIdAsync(userId);
+        if (user == null) return NotFound("Gebruiker niet gevonden");
+
+        // We sturen de gegevens terug (zonder wachtwoord uiteraard!)
+        return Ok(new 
+        { 
+            gebruikersnaam = user.UserName, 
+            email = user.Email,
+            voornaam = user.Voornaam,
+            achternaam = user.Achternaam
+            
+        });
+    }
     private async Task<string> GenerateJwtToken(Gebruiker gebruiker)
 {
     

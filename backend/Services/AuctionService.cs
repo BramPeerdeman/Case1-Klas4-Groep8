@@ -24,18 +24,45 @@ namespace backend.Services
             _hub = hub;
         }
 
+        public async Task TimeoutAuction(int productId)
+        {
+            var auction = _activeAuctions.FirstOrDefault(a => a.ProductId == productId);
+            if (auction != null && auction.IsRunning)
+            {
+                auction.IsRunning = false;
+
+                // Stuur bericht: Niet verkocht
+                await _hub.Clients.All.SendAsync("ReceiveAuctionResult", new
+                {
+                    productId = productId,
+                    sold = false,
+                    price = auction.CurrentPrice
+                });
+
+                // Als de queue aan staat, ga door
+                if (_isQueueRunning)
+                {
+                    _ = Task.Run(async () => {
+                        await Task.Delay(5000);
+                        await StartNextInQueue();
+                    });
+                }
+            }
+        }
         public void AddToQueue(List<int> productIds)
         {
-            // VALIDATION: Only allow products scheduled for today
+            // VALIDATION: Allow products scheduled for today or earlier
             using (var scope = _scopeFactory.CreateScope())
             {
                 var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
                 var today = DateTime.Today;
 
+                // CHECK: Strict date validation ensures future products are ignored here, 
+                // even if IsAuctionable was set to true by the controller.
                 var validIds = context.Producten
                     .Where(p => productIds.Contains(p.ProductID) &&
                                 p.BeginDatum.HasValue &&
-                                p.BeginDatum.Value.Date == today &&
+                                p.BeginDatum.Value.Date <= today &&
                                 p.Aantal > 0 &&
                                 p.IsAuctionable)
                     .Select(p => p.ProductID)
@@ -54,6 +81,12 @@ namespace backend.Services
             {
                 _productQueue.Remove(productId);
             }
+        }
+
+        // --- NEW IMPLEMENTATION ---
+        public List<int> GetQueueIds()
+        {
+            return new List<int>(_productQueue);
         }
 
         public AuctionState? GetActiveAuction()
@@ -83,7 +116,6 @@ namespace backend.Services
             }
         }
 
-        // --- UPDATED METHOD START ---
         public async Task StartAuctionAsync(int productId)
         {
             var auction = _activeAuctions.FirstOrDefault(a => a.ProductId == productId);
@@ -101,16 +133,20 @@ namespace backend.Services
 
             // 1. Fetch Start Price from DB
             decimal startPrijs = 0;
+            // decimal minPrijs = 0;
             using (var scope = _scopeFactory.CreateScope())
             {
                 var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
                 var product = await db.Producten.FindAsync(productId);
-                // Ensure StartPrijs is cast correctly based on your Entity definition
-                if (product != null) startPrijs = (decimal)product.StartPrijs;
+
+                if (product != null)
+                {
+                    startPrijs = (decimal)product.StartPrijs;
+                    auction.MinPrice = product.MinPrijs ?? 0;
+                }
             }
 
             // 2. Initialize the in-memory current price
-            // Ensure your AuctionState model has a public decimal CurrentPrice { get; set; } property
             auction.CurrentPrice = startPrijs;
 
             // 3. Send SignalR update including startPrijs
@@ -121,7 +157,6 @@ namespace backend.Services
                 startPrijs = startPrijs
             });
         }
-        // --- UPDATED METHOD END ---
 
         public AuctionState GetStatus(int productId)
         {
@@ -140,7 +175,7 @@ namespace backend.Services
             auction.IsRunning = false;
             auction.IsSold = true;
             auction.BuyerName = koperNaam;
-            auction.FinalPrice = bedrag;
+            auction.FinalPrice = auction.CurrentPrice;
 
             // Variables to hold data for SignalR (extracted from DB scope)
             string sellerId = "";
@@ -170,7 +205,18 @@ namespace backend.Services
                 // Deduct Stock
                 prod.Aantal -= aantal;
 
-                // Veiling loggen
+                // --- NEW LOGIC: Handle Partial Sales ---
+                if (prod.Aantal > 0)
+                {
+                    // If stock remains, re-add to the back of the queue
+                    if (!_productQueue.Contains(productId))
+                    {
+                        _productQueue.Add(productId);
+                    }
+                }
+                // ----------------------------------------
+
+                // Veiling loggen (Permanent Receipt)
                 var veiling = new Veiling
                 {
                     ProductID = productId,
@@ -182,11 +228,6 @@ namespace backend.Services
                     KoperId = koperId
                 };
                 context.Veilingen.Add(veiling);
-
-                // Update Product status
-                prod.KoperID = koperId;
-                prod.EindDatum = DateTime.Now;
-                prod.Eindprijs = (float)bedrag;
 
                 // If stock is empty, it is no longer auctionable. 
                 if (prod.Aantal <= 0)
