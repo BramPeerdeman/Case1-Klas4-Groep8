@@ -13,7 +13,6 @@ namespace backend.Controllers
         public int ProductId { get; set; }
         public string? BuyerName { get; set; }
         public string? BuyerId { get; set; }
-        // Price removed as requested
         public int Aantal { get; set; } = 1; // Default to 1
     }
 
@@ -28,7 +27,7 @@ namespace backend.Controllers
             _auctionService = auctionService;
         }
 
-        // --- NEW ENDPOINT: Get active queue IDs ---
+        // Get active queue IDs ---
         [HttpGet("queue/ids")]
         public IActionResult GetQueueIds()
         {
@@ -88,7 +87,6 @@ namespace backend.Controllers
         [HttpPost("koop")]
         public async Task<IActionResult> Koop([FromBody] KoopRequest request)
         {
-            // Removed price parameter from the call
             bool gelukt = await _auctionService.PlaatsBod(
                 request.ProductId,
                 request.BuyerName,
