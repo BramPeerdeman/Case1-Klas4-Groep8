@@ -1,8 +1,10 @@
 import { useAuth } from "../Contexts/AuthContext";
 import { useUser } from "../Contexts/UserContext";
 import { TextField, Button, Typography, Switch, Slider, Box } from "@mui/material";
+import { usePageTitle } from "../Hooks/usePageTitle"; 
 
 export default function Settings() {
+  usePageTitle("Instellingen");
   // Identity comes from AuthContext
   const { user } = useAuth();
 

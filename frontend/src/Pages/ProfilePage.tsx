@@ -2,8 +2,9 @@ import { useState, useEffect } from "react";
 import { Container, TextField, Button, Typography, Box, Alert, Paper } from "@mui/material";
 import { useAuth } from "../Contexts/AuthContext"; // Pas aan als jouw pad anders is
 import { getMyProfile, updateMyProfile, type UpdateProfileData } from "../Services/authService";
-
+import { usePageTitle } from "../Hooks/usePageTitle";
 export default function ProfilePage() {
+    usePageTitle("Mijn Profiel");
     //const { login, logout } = useAuth(); // We hebben login nodig om het token te verversen als dat moet
     const [loading, setLoading] = useState(true);
     const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);

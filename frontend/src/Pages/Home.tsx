@@ -26,6 +26,7 @@ import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
 import * as signalR from "@microsoft/signalr";
 import ProductCard from "../Components/ProductCard";
 import { getImageUrl } from "../Utils/ImageUtils";
+import { usePageTitle } from "../Hooks/usePageTitle";
 
 // Vaste locaties voor de filter
 const LOCATIES = [
@@ -38,6 +39,7 @@ const LOCATIES = [
 ];
 
 export default function Home() {
+  usePageTitle("Home");
   const navigate = useNavigate();
   const [activeAuction, setActiveAuction] = useState<any>(null);
   const [activeProduct, setActiveProduct] = useState<any>(null);
