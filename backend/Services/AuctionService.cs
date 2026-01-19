@@ -50,6 +50,8 @@ namespace backend.Services
                     price = auction.CurrentPrice
                 });
 
+                await _hub.Clients.All.SendAsync("RefreshProducts");
+
                 // Als de queue aan staat, ga door
                 if (_isQueueRunning)
                 {
@@ -200,6 +202,8 @@ namespace backend.Services
                 startTime = auction.StartTime,
                 startPrijs = startPrijs
             });
+            // In StartAuctionAsync
+            await _hub.Clients.All.SendAsync("RefreshProducts");
         }
 
         public AuctionState GetStatus(int productId)
