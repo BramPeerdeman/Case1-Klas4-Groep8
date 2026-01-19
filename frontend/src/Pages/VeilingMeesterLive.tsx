@@ -11,6 +11,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import { useNavigate } from "react-router-dom";
 import { useNotification } from "../Contexts/NotificationContext";
+import { usePageTitle } from "../Hooks/usePageTitle";
 
 // Updated Interface
 interface CurrentAuctionItem {
@@ -22,6 +23,7 @@ interface CurrentAuctionItem {
 }
 
 export default function VeilingMeesterLive() {
+  usePageTitle("Veilingmeester Live");
   const navigate = useNavigate();
   const { notify } = useNotification();
   

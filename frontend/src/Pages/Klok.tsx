@@ -1,4 +1,5 @@
 import { useParams, useNavigate } from "react-router-dom";
+import { usePageTitle } from "../Hooks/usePageTitle";
 import { 
     Box, 
     Container, 
@@ -49,6 +50,7 @@ interface HistoryData {
 }
 
 export default function Klok() {
+  usePageTitle("Klok Veiling");
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();

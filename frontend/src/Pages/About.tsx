@@ -1,4 +1,6 @@
-export default function About() {
+import { usePageTitle } from "../Hooks/usePageTitle";
+export default function About() { 
+  usePageTitle("Over ons");
   return (
   <>
   <h1>Welkom op de About Page</h1>
