@@ -149,7 +149,7 @@ export default function Klok() {
 
         if (found) {
           setProduct(found);
-          setQuantity(1);
+          setQuantity(found.aantal);
 
           const statusRes = await fetch(`${baseUrl}/api/Veiling/status/${id}`);
           if (statusRes.ok) {
