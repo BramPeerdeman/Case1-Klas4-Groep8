@@ -9,8 +9,11 @@
         public string? BuyerName { get; set; }
         public decimal FinalPrice { get; set; }
 
-        // NEW: Track the live price in memory
+        // Live price that changes
         public decimal CurrentPrice { get; set; }
+
+        // ADDED: Original start price for timestamp calculation
+        public decimal StartPrice { get; set; }
 
         public decimal MinPrice { get; set; }
     }

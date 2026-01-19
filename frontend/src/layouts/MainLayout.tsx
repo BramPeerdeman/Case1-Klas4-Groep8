@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { Box, Container } from "@mui/material";
+import { Box, Container, Button } from "@mui/material";
 import { Outlet } from "react-router-dom";
 import Navbar from "../Components/Navbar";
 import Footer from "../Components/Footer";
@@ -50,11 +50,54 @@ const MainLayout: React.FC = () => {
   }, [user, notify, baseUrl]);
 
   return (
-    <Box sx={{ display: "flex", minHeight: "100vh", flexDirection: "column" }}>
+    <Box sx={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
+      {/* Skip to Content Link 
+        - Hidden visually by default (off-screen)
+        - Becomes visible on focus (Tab key)
+        - Z-index ensures it sits on top of the Navbar when active
+      */}
+      <Button
+        component="a"
+        href="#main-content"
+        sx={{
+          position: "absolute",
+          left: "-9999px",
+          top: "auto",
+          width: "1px",
+          height: "1px",
+          overflow: "hidden",
+          zIndex: 1400, // Higher than standard AppBar (1100)
+          "&:focus": {
+            position: "fixed",
+            top: "16px",
+            left: "16px",
+            width: "auto",
+            height: "auto",
+            padding: 2,
+            backgroundColor: "background.paper",
+            color: "primary.main",
+            boxShadow: 6,
+            borderRadius: 1,
+            textDecoration: "none",
+          },
+        }}
+      >
+        Spring naar inhoud
+      </Button>
+
       <Navbar />
-      <Container component="main" sx={{ mt: 4, flexGrow: 1 }}>
+
+      {/* Main Content Area */}
+      <Container
+        component="main"
+        id="main-content" // Target for the skip link
+        maxWidth="xl"
+        sx={{ flexGrow: 1, py: 4 }}
+        tabIndex={-1} // Ensures the container can receive focus programmatically if needed
+      >
         <Outlet />
       </Container>
+      
       <Footer />
     </Box>
   );

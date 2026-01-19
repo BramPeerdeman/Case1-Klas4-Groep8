@@ -233,8 +233,11 @@ namespace backend.Controllers
         [HttpGet("product/onveilbarelist")]
         public async Task<IActionResult> GetUnassignedProducts()
         {
+            var today = DateTime.Today; // Use strictly today (matches logic in Service)
+
             var ProductenZonderStartprijs = await _context.Producten
-                .Where(p => p.StartPrijs == null)
+                .Where(p => p.StartPrijs == null &&
+                           (!p.BeginDatum.HasValue || p.BeginDatum.Value.Date >= today)) // ADDED FILTER
                 .AsNoTracking()
                 .ToListAsync();
 
@@ -272,24 +275,47 @@ namespace backend.Controllers
         [Authorize(Roles = "veiler")]
         public async Task<IActionResult> GetMyProducts()
         {
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)
+                         ?? User.FindFirstValue(JwtRegisteredClaimNames.Sub);
 
-            if (string.IsNullOrEmpty(userId))
-            {
-                userId = User.FindFirstValue(JwtRegisteredClaimNames.Sub);
-            }
+            if (string.IsNullOrEmpty(userId)) return Unauthorized("User ID not found.");
 
-            if (string.IsNullOrEmpty(userId))
-            {
-                return Unauthorized("User ID not found in token.");
-            }
-
-            var myProducts = await _context.Producten
+            // 1. Fetch current active products (Live, Drafts, Scheduled)
+            var activeProducts = await _context.Producten
                 .AsNoTracking()
                 .Where(p => p.VerkoperID == userId)
                 .ToListAsync();
 
-            return Ok(myProducts);
+            // 2. Fetch sold history from Veilingen (Sales Archive)
+            var soldHistory = await _context.Veilingen
+                .AsNoTracking()
+                .Where(v => v.VerkoperID == userId)
+                .Join(_context.Producten, // Join to get original product details
+                      sale => sale.ProductID,
+                      prod => prod.ProductID,
+                      (sale, prod) => new Product
+                      {
+                          // Generate a unique negative ID to distinguish history items from real DB rows
+                          // This prevents ID conflicts in the frontend
+                          ProductID = -Math.Abs(sale.VeilingID),
+                          Naam = prod.Naam,
+                          Beschrijving = prod.Beschrijving,
+                          ImageUrl = prod.ImageUrl,
+
+                          // Important: Set the SOLD amount and price
+                          Aantal = sale.Aantal,
+                          MinPrijs = sale.VerkoopPrijs.HasValue ? (decimal)sale.VerkoopPrijs.Value : 0, // Show sold price
+
+                          BeginDatum = sale.StartDatumTijd,
+                          KoperID = sale.KoperId, // Triggers "Sold" tab in frontend
+                          IsAuctionable = false
+                      })
+                .ToListAsync();
+
+            // 3. Merge both lists
+            var combinedList = activeProducts.Concat(soldHistory).ToList();
+
+            return Ok(combinedList);
         }
 
         [HttpGet("geschiedenis")]

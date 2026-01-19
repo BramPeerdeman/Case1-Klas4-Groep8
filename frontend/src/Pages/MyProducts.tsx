@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import { Container, Typography, Grid, Button, Box, Alert, CircularProgress, Dialog, DialogTitle, DialogContent, DialogActions, TextField } from "@mui/material";
+import { Container, Typography, Grid, Button, Box, Alert, CircularProgress, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Tabs, Tab, Badge } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import ProductCard from "../Components/ProductCard";
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
@@ -15,7 +15,8 @@ interface Product {
   beschrijving: string;
   aantal: number;
   beginDatum: string;
-  isAuctionable: boolean; // ADDED
+  isAuctionable: boolean;
+  koperID?: string; 
 }
 
 export default function MyProducts() {
@@ -23,10 +24,11 @@ export default function MyProducts() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   
-  // State for Editing
-  const [editProduct, setEditProduct] = useState<Product | null>(null);
+  // Tabs State
+  const [currentTab, setCurrentTab] = useState(0);
   
-  // Refactored: Form state object instead of single date string
+  // Edit State
+  const [editProduct, setEditProduct] = useState<Product | null>(null);
   const [formData, setFormData] = useState({
       naam: "",
       beschrijving: "",
@@ -34,18 +36,47 @@ export default function MyProducts() {
       aantal: 0,
       beginDatum: ""
   });
-
   const [openDialog, setOpenDialog] = useState(false);
 
   const navigate = useNavigate();
   const { notify } = useNotification();
-  
-  // Ref to hold connection to clean up properly
   const connectionRef = useRef<signalR.HubConnection | null>(null);
-
   const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5299';
 
-  // Open the edit dialog and populate form
+  // --- FILTERS FOR TABS ---
+  const today = new Date();
+  today.setHours(0, 0, 0, 0); // Normalize today to midnight
+
+  const soldProducts = products.filter(p => p.aantal === 0 || p.koperID != null);
+  const activeProducts = products.filter(p => p.aantal > 0 && !p.koperID && p.isAuctionable);
+  
+  // "Action Needed": Not auctionable, but date is in the past (Expired)
+  const expiredProducts = products.filter(p => {
+    if (p.aantal === 0 || p.koperID || p.isAuctionable) return false;
+    const pDate = p.beginDatum ? new Date(p.beginDatum) : null;
+    return pDate && pDate < today;
+  });
+
+  // "Drafts": Not auctionable, date is today or future, or no date
+  const draftProducts = products.filter(p => {
+    if (p.aantal === 0 || p.koperID || p.isAuctionable) return false;
+    const pDate = p.beginDatum ? new Date(p.beginDatum) : null;
+    return !pDate || pDate >= today;
+  });
+
+  // Get current list based on tab
+  const getDisplayedProducts = () => {
+      switch(currentTab) {
+          case 0: return activeProducts;
+          case 1: return expiredProducts;
+          case 2: return draftProducts;
+          case 3: return soldProducts;
+          default: return [];
+      }
+  };
+
+  // --- ACTIONS ---
+
   const handleEditClick = (id: number) => {
     const product = products.find(p => p.productID === id);
     if (product) {
@@ -61,212 +92,175 @@ export default function MyProducts() {
     }
   };
 
-  // Save the product updates
   const handleUpdateProduct = async () => {
     if (!editProduct) return;
-
     try {
         const token = localStorage.getItem("token");
-        
-        // Construct payload from form data
-        const payload = {
-            ...editProduct,
-            naam: formData.naam,
-            beschrijving: formData.beschrijving,
-            minPrijs: formData.minPrijs,
-            aantal: formData.aantal,
-            beginDatum: formData.beginDatum
-        };
+        const payload = { ...editProduct, ...formData };
 
         const response = await fetch(`${baseUrl}/api/Product/product/${editProduct.productID}`, {
             method: "PUT",
-            headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${token}`
-            },
+            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
             body: JSON.stringify(payload)
         });
 
         if (response.ok) {
-            const updatedProduct = await response.json();
-            if (notify) notify("Product aangepast!", "success");
-            
-            // Update local state with the response from backend
-            setProducts(prev => prev.map(p => 
-                p.productID === editProduct.productID ? { ...p, ...updatedProduct } : p
-            ));
-            
+            const updated = await response.json();
+            notify("Product bijgewerkt!", "success");
+            setProducts(prev => prev.map(p => p.productID === editProduct.productID ? { ...p, ...updated } : p));
             setOpenDialog(false);
             setEditProduct(null);
         } else {
-            const err = await response.text();
-            if (notify) notify(err || "Kon product niet aanpassen.", "error");
+            notify("Kon product niet aanpassen.", "error");
         }
     } catch (e) {
-        console.error(e);
-        if (notify) notify("Er ging iets mis.", "error");
+        notify("Er ging iets mis.", "error");
     }
   };
 
-  // Stop Sale functionality
   const handleStopSale = async (id: number) => {
-      if(!confirm("Weet u zeker dat u de verkoop wilt stoppen? Het product wordt teruggezet naar uw lijst als concept.")) return;
-
+      if(!confirm("Weet u zeker dat u de verkoop wilt stoppen?")) return;
       const token = localStorage.getItem("token");
       try {
           const response = await fetch(`${baseUrl}/api/Product/product/${id}/stop`, {
               method: 'PUT',
               headers: { "Authorization": `Bearer ${token}` }
           });
-
           if(response.ok) {
-              notify("Verkoop gestopt. Product is nu 'Onveilbaar'.", "info");
-              // Update local state: set isAuctionable to false
-              setProducts(prev => prev.map(p => 
-                  p.productID === id ? { ...p, isAuctionable: false } : p
-              ));
+              notify("Verkoop gestopt. Product is nu een concept.", "info");
+              setProducts(prev => prev.map(p => p.productID === id ? { ...p, isAuctionable: false } : p));
           } else {
-              const err = await response.text();
-              notify("Fout: " + err, "error");
+              notify("Fout bij stoppen.", "error");
           }
       } catch(e) {
-          console.error(e);
-          notify("Netwerkfout bij stoppen verkoop.", "error");
+          notify("Netwerkfout.", "error");
       }
   };
 
-  //Delete functionaliteit
   const handleDelete = async (id: number) => {
-    if (!window.confirm("Weet u zeker dat u dit product wilt verwijderen?")) {
-      return;
-    }
-
+    if (!window.confirm("Verwijderen?")) return;
     const token = localStorage.getItem("token");
-
     try {
       const response = await fetch(`${baseUrl}/api/Product/product/${id}`, {
         method: "DELETE",
-        headers: {
-          "Authorization": `Bearer ${token}`
-        }
+        headers: { "Authorization": `Bearer ${token}` }
       });
-
       if (response.ok) {
-        // Remove from local state immediately so user sees result
-        setProducts((prevProducts) => prevProducts.filter(p => p.productID !== id));
-        if (notify) notify("Product verwijderd.", "success");
+        setProducts(prev => prev.filter(p => p.productID !== id));
+        notify("Product verwijderd.", "success");
       } else {
-        const errMsg = await response.text();
-        console.error("Delete failed:", errMsg);
-        if (notify) notify(errMsg || "Verwijderen mislukt.", "error");
+        notify("Verwijderen mislukt.", "error");
       }
     } catch (error) {
-      console.error("Network error:", error);
+       console.error(error);
     }
   };
 
-  // Fetch initial products
+  // --- EFFECTS ---
+
   useEffect(() => {
     const fetchMyProducts = async () => {
       const token = localStorage.getItem("token");
-
       try {
         const response = await fetch(`${baseUrl}/api/Product/my-products`, {
-          method: "GET",
-          headers: {
-            "Authorization": `Bearer ${token}`,
-            "Content-Type": "application/json"
-          }
+          headers: { "Authorization": `Bearer ${token}` }
         });
-
-        if (!response.ok) {
-          throw new Error("Kon producten niet ophalen.");
-        }
-
+        if (!response.ok) throw new Error("Kon producten niet ophalen.");
         const data = await response.json();
         setProducts(data);
       } catch (err) {
-        setError("Er ging iets mis bij het laden van uw producten.");
-        console.error(err);
+        setError("Er ging iets mis bij het laden.");
       } finally {
         setLoading(false);
       }
     };
-
     fetchMyProducts();
   }, []);
 
-  // SignalR Connection for Real-time Updates
   useEffect(() => {
     const connection = new signalR.HubConnectionBuilder()
         .withUrl(`${baseUrl}/AuctionHub`)
         .withAutomaticReconnect()
         .build();
 
-    connection.start()
-        .then(() => console.log("Connected to AuctionHub"))
-        .catch(err => console.error("SignalR Connection Error: ", err));
-
+    connection.start().catch(err => console.error(err));
+    
     connection.on("ReceiveAuctionResult", (data: any) => {
-        setProducts(currentProducts => {
-            const exists = currentProducts.find(p => p.productID === data.productId);
-            if (!exists) return currentProducts; 
-
-            return currentProducts.map(p => {
+        setProducts(current => {
+            return current.flatMap(p => {
+                // If this is the product being sold
                 if (p.productID === data.productId) {
                     const soldAmount = data.amount || 1;
-                    const newStock = (p.aantal || 0) - soldAmount;
-                    if (newStock <= 0) return null;
-                    return { ...p, aantal: newStock };
+                    const remainingStock = (p.aantal || 0) - soldAmount;
+
+                    // 1. Create the new "Sold" entry for the UI immediately
+                    const soldEntry: Product = {
+                        ...p,
+                        productID: -Date.now(), // Temp negative ID until refresh
+                        aantal: soldAmount,
+                        koperID: data.buyer,
+                        minPrijs: data.price,
+                        isAuctionable: false
+                    };
+
+                    // 2. Update the original "Live" product stock
+                    const originalUpdated = {
+                        ...p,
+                        aantal: Math.max(0, remainingStock)
+                    };
+
+                    // If stock hits 0, the original stays but moves to "Sold" tab naturally.
+                    // If stock > 0, original stays in "Live", soldEntry goes to "Sold".
+                    return [originalUpdated, soldEntry];
                 }
-                return p;
-            }).filter((p): p is Product => p !== null);
+                return [p];
+            });
         });
     });
-
+    
     connectionRef.current = connection;
-
-    return () => {
-        if (connectionRef.current) {
-            connectionRef.current.stop();
-        }
-    };
+    return () => { connectionRef.current?.stop(); };
   }, []);
 
   return (
     <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Typography variant="h4" component="h1">
-          Mijn Aanbod
-        </Typography>
+        <Typography variant="h4" component="h1">Mijn Aanbod</Typography>
         <Box>
-          <Button 
-            startIcon={<ArrowBackIcon />} 
-            onClick={() => navigate('/verkoper')} 
-            sx={{ mr: 2 }}
-          >
-            Terug
+          <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/verkoper')} sx={{ mr: 2 }}>
+            Dashboard
           </Button>
-          <Button 
-            variant="contained" 
-            startIcon={<AddIcon />} 
-            onClick={() => navigate('/verkoper')} 
-          >
-            Nieuw Product
+          <Button variant="contained" startIcon={<AddIcon />} onClick={() => navigate('/verkoper')}>
+            Nieuw
           </Button>
         </Box>
       </Box>
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-      
+
+      {/* TABS NAVIGATION */}
+      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+        <Tabs value={currentTab} onChange={(_, val) => setCurrentTab(val)} aria-label="product tabs">
+            <Tab label={`Live / Gepland (${activeProducts.length})`} />
+            <Tab label={
+                <Badge badgeContent={expiredProducts.length} color="error" sx={{ pr: 2 }}>
+                    Actie Vereist
+                </Badge>
+            } />
+            <Tab label={`Concepten (${draftProducts.length})`} />
+            <Tab label={`Verkocht (${soldProducts.length})`} />
+        </Tabs>
+      </Box>
+
       {loading ? (
         <Box display="flex" justifyContent="center" mt={4}><CircularProgress /></Box>
-      ) : products.length === 0 ? (
-        <Alert severity="info">U heeft nog geen producten aangeboden.</Alert>
-      ) :  (
+      ) : getDisplayedProducts().length === 0 ? (
+        <Alert severity="info">Geen producten in deze categorie.</Alert>
+      ) : (
         <Grid container spacing={3}>
-          {products.map((product) => (
-            <Grid size = {{xs: 12, sm: 6, md: 4}} key={product.productID}>
+          {getDisplayedProducts().map((product) => (
+            // Restored the correct Grid Size syntax
+            <Grid size={{ xs: 12, sm: 6, md: 4 }} key={product.productID}>
               <ProductCard 
                 product={{
                   id: product.productID,
@@ -286,67 +280,67 @@ export default function MyProducts() {
         </Grid>
       )}
 
-      {/* EDIT PRODUCT DIALOG */}
+      {/* EDIT DIALOG */}
       <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth>
         <DialogTitle>Product Wijzigen</DialogTitle>
         <DialogContent>
             <Typography variant="body2" sx={{mb: 2, color: 'text.secondary'}}>
                 Pas de gegevens aan voor <strong>{editProduct?.naam}</strong>.
             </Typography>
-
-            <TextField
-                label="Naam"
-                fullWidth
-                margin="dense"
-                value={formData.naam}
-                onChange={(e) => setFormData({ ...formData, naam: e.target.value })}
+            
+            <TextField 
+                label="Naam" 
+                fullWidth 
+                margin="dense" 
+                value={formData.naam} 
+                onChange={(e) => setFormData({ ...formData, naam: e.target.value })} 
             />
-
-            <TextField
-                label="Beschrijving"
-                fullWidth
-                multiline
-                rows={3}
-                margin="dense"
-                value={formData.beschrijving}
-                onChange={(e) => setFormData({ ...formData, beschrijving: e.target.value })}
+            
+            <TextField 
+                label="Beschrijving" 
+                fullWidth 
+                multiline 
+                rows={3} 
+                margin="dense" 
+                value={formData.beschrijving} 
+                onChange={(e) => setFormData({ ...formData, beschrijving: e.target.value })} 
             />
-
+            
             <Box display="flex" gap={2}>
-                <TextField
-                    label="Min. Prijs (€)"
-                    type="number"
-                    fullWidth
-                    margin="dense"
-                    value={formData.minPrijs}
-                    onChange={(e) => setFormData({ ...formData, minPrijs: Number(e.target.value) })}
+                <TextField 
+                    label="Min. Prijs (€)" 
+                    type="number" 
+                    fullWidth 
+                    margin="dense" 
+                    value={formData.minPrijs} 
+                    onChange={(e) => setFormData({ ...formData, minPrijs: Number(e.target.value) })} 
                 />
-                <TextField
-                    label="Aantal"
-                    type="number"
-                    fullWidth
-                    margin="dense"
-                    value={formData.aantal}
-                    onChange={(e) => setFormData({ ...formData, aantal: Number(e.target.value) })}
+                <TextField 
+                    label="Aantal" 
+                    type="number" 
+                    fullWidth 
+                    margin="dense" 
+                    value={formData.aantal} 
+                    onChange={(e) => setFormData({ ...formData, aantal: Number(e.target.value) })} 
                 />
             </Box>
-
-            <TextField
-                type="date"
-                label="Veiling Datum"
-                fullWidth
-                margin="dense"
-                InputLabelProps={{ shrink: true }}
-                value={formData.beginDatum}
-                onChange={(e) => setFormData({ ...formData, beginDatum: e.target.value })}
+            
+            <TextField 
+                type="date" 
+                label="Veiling Datum" 
+                fullWidth 
+                margin="dense" 
+                InputLabelProps={{ shrink: true }} 
+                value={formData.beginDatum} 
+                onChange={(e) => setFormData({ ...formData, beginDatum: e.target.value })} 
+                helperText="Kies een nieuwe datum om het product weer aan te bieden."
             />
         </DialogContent>
         <DialogActions>
             <Button onClick={() => setOpenDialog(false)}>Annuleren</Button>
-            <Button onClick={handleUpdateProduct} variant="contained" color="primary">Opslaan</Button>
+            <Button onClick={handleUpdateProduct} variant="contained" color="primary">Opslaan & Opnieuw Aanbieden</Button>
         </DialogActions>
       </Dialog>
-
     </Container>
   );
 }
