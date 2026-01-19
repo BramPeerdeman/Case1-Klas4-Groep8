@@ -1,5 +1,5 @@
 ﻿using backend.Models;
-using System.Collections.Generic; // Ensure this is present if List<> is used without fully qualified name, though usually implicitly available or in global usings.
+using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace backend.interfaces
@@ -7,6 +7,9 @@ namespace backend.interfaces
     public interface IProductService
     {
         Task<List<Product>> GetAuctionableProductsAsync();
-        Task<List<Product>> GetScheduledProductsAsync(); // ADDED
+        Task<List<Product>> GetScheduledProductsAsync();
+
+        // ADDED: Method to clean up old unsold products
+        Task ResetExpiredProductsAsync();
     }
 }

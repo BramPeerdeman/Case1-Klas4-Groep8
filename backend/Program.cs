@@ -44,16 +44,16 @@ builder.Services.AddAuthentication(options =>
         ValidAudience = builder.Configuration["Jwt:Audience"],
         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]))
     };
-});   
+});
 
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
     {
-        policy.SetIsOriginAllowed(origin => true) 
+        policy.SetIsOriginAllowed(origin => true)
               .AllowAnyHeader()
               .AllowAnyMethod()
-              .AllowCredentials(); 
+              .AllowCredentials();
     });
 });
 
@@ -64,7 +64,6 @@ builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
-        // Zorg dat System.Text.Json polymorfie begrijpt
         options.JsonSerializerOptions.TypeInfoResolverChain.Insert(0,
             new DefaultJsonTypeInfoResolver
             {
@@ -98,8 +97,7 @@ builder.Services.AddSwaggerGen(c =>
     c.SwaggerDoc("v1", new OpenApiInfo { Title = "API", Version = "v1" });
     c.SupportNonNullableReferenceTypes();
     c.UseAllOfToExtendReferenceSchemas();
-    c.UseOneOfForPolymorphism(); // <-- belangrijk
-    //c.SchemaFilter<GebruikerExampleFilter>();
+    c.UseOneOfForPolymorphism();
 });
 
 builder.Services.AddSignalR();
@@ -111,24 +109,24 @@ using (var scope = app.Services.CreateScope())
     var loggerFactory = services.GetRequiredService<ILoggerFactory>();
     try
     {
-        // Vraag de RoleManager (de "Rollenbaas") op
+        // 1. Seed Roles
         var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
-
         string[] roleNames = { "admin", "koper", "veiler" };
         foreach (var roleName in roleNames)
         {
-            // Bestaat de rol al?
             var roleExists = await roleManager.RoleExistsAsync(roleName);
             if (!roleExists)
             {
-                // Nee? Maak hem dan aan.
                 await roleManager.CreateAsync(new IdentityRole(roleName));
             }
         }
+
+        // 2. ADDED: Clean up expired products on startup
+        var productService = services.GetRequiredService<IProductService>();
+        await productService.ResetExpiredProductsAsync();
     }
     catch (Exception ex)
     {
-        // Mocht het seeden falen (bv. database niet bereikbaar), log het dan
         var logger = loggerFactory.CreateLogger<Program>();
         logger.LogError(ex, "Er is een fout opgetreden bij het seeden van de rollen.");
     }
@@ -144,14 +142,12 @@ if (app.Environment.IsDevelopment())
     });
 }
 
-//app.UseHttpsRedirection();
 app.UseStaticFiles();
 app.UseRouting();
 app.UseCors();
-app.UseAuthentication(); 
+app.UseAuthentication();
 app.UseAuthorization();
 app.MapHub<AuctionHub>("/AuctionHub");
 app.MapControllers();
 
-app.MapControllers();
 app.Run();

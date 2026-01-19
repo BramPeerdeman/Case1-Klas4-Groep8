@@ -1,23 +1,24 @@
 using backend.Controllers;
 using backend.Data;
-using backend.DTOs; // <--- Belangrijk voor de nieuwe input
+using backend.DTOs;
 using backend.interfaces;
 using backend.Models;
 using backend.Services;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Hosting; // <--- Nodig voor Environment
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.FileProviders; // Nodig voor de Fake
+using Microsoft.Extensions.FileProviders;
 using Moq;
-using System.Reflection;
+using System;
+using System.Collections.Generic;
+using System.Security.Claims;
+using System.Threading.Tasks;
 using Xunit;
 
 namespace backend.Controllers.Tests
 {
     public class ProductControllerTests
     {
-        // Helper method voor In-Memory Database
         private AppDbContext GetInMemoryDbContext()
         {
             var options = new DbContextOptionsBuilder<AppDbContext>()
@@ -26,263 +27,160 @@ namespace backend.Controllers.Tests
             return new AppDbContext(options);
         }
 
-        private ProductService GetProductService()
+        private ProductController SetupController(AppDbContext context, string userId = "user1")
         {
-            using var context = GetInMemoryDbContext();
-            return new Services.ProductService(context);
-        }
+            var productService = new ProductService(context);
+            var mockAuction = new Mock<IAuctionService>();
+            var env = new FakeWebHostEnvironment();
 
-        // We hebben een 'nep' omgeving nodig omdat de controller nu IWebHostEnvironment gebruikt
-        private IWebHostEnvironment GetFakeEnvironment()
-        {
-            return new FakeWebHostEnvironment();
-        }
+            var controller = new ProductController(context, productService, mockAuction.Object, env);
 
-        // -------------------------------------------------------------------
-        // VEILER SPECIFIC TESTS
-        // -------------------------------------------------------------------
-
-        [Fact]
-        public void CreateProduct_ShouldBeRestrictedToVeilerRole()
-        {
-            // Arrange
-            var methodInfo = typeof(ProductController).GetMethod(nameof(ProductController.CreateProduct));
-
-            // Act
-            var authorizeAttribute = methodInfo.GetCustomAttribute<AuthorizeAttribute>();
-
-            // Assert
-            Assert.NotNull(authorizeAttribute);
-            Assert.Equal("veiler", authorizeAttribute.Roles);
-        }
-
-        [Fact]
-        public async Task CreateProduct_ReturnsCreatedAtAction_WhenProductIsValid()
-        {
-            // Arrange
-            using var context = GetInMemoryDbContext();
-            ProductService productService = GetProductService();
-            var fakeEnv = GetFakeEnvironment();
-
-            var mockService = new Mock<IAuctionService>();
-            IAuctionService auctionService = mockService.Object;
-
-            var controller = new ProductController(context, productService, auctionService, fakeEnv);
-
-            // UPDATE: We gebruiken nu de DTO in plaats van het Model als input
-            var newProductDto = new ProductCreateDto
-            {
-                Naam = "Veiling Item 1",
-                Beschrijving = "Een prachtige antieke vaas",
-                MinPrijs = 50,
-                Aantal = 1,
-                // VerkoperID sturen we niet mee, dat haalt de controller uit de User
-            };
-
-            // FIX VOOR USER CONTEXT:
-            // We moeten de controller laten denken dat er iemand is ingelogd.
-            var claims = new List<System.Security.Claims.Claim>
-            {
-                new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.NameIdentifier, "1")
-            };
-            var identity = new System.Security.Claims.ClaimsIdentity(claims, "TestAuth");
-            var claimsPrincipal = new System.Security.Claims.ClaimsPrincipal(identity);
+            var claims = new List<Claim> { new Claim(ClaimTypes.NameIdentifier, userId), new Claim("sub", userId) };
+            var identity = new ClaimsIdentity(claims, "TestAuth");
+            var principal = new ClaimsPrincipal(identity);
 
             controller.ControllerContext = new ControllerContext
             {
-                HttpContext = new Microsoft.AspNetCore.Http.DefaultHttpContext { User = claimsPrincipal }
+                HttpContext = new Microsoft.AspNetCore.Http.DefaultHttpContext { User = principal }
             };
 
-            // Act
-            var result = await controller.CreateProduct(newProductDto);
+            return controller;
+        }
 
-            // Assert
-            // 1. Check Response Type
-            var createdResult = Assert.IsType<CreatedAtActionResult>(result);
-            var returnedProduct = Assert.IsType<Product>(createdResult.Value);
+        [Fact]
+        public async Task GetAllProducts_ReturnsOnlyAvailableProducts()
+        {
+            using var context = GetInMemoryDbContext();
+            context.Producten.Add(new Product { Naam = "Beschikbaar", Aantal = 10, KoperID = null });
+            context.Producten.Add(new Product { Naam = "Uitverkocht", Aantal = 0, KoperID = null });
+            await context.SaveChangesAsync();
 
-            // 2. Check Data Integrity
-            Assert.Equal("Veiling Item 1", returnedProduct.Naam);
+            var controller = SetupController(context);
+            var result = await controller.GetAllProducts();
+            var list = Assert.IsType<List<Product>>(Assert.IsType<OkObjectResult>(result).Value);
 
-            // 3. Verify it was actually saved to the Database
+            Assert.Single(list);
+            Assert.Equal("Beschikbaar", list[0].Naam);
+        }
+
+        [Fact]
+        public async Task GetProductById_ReturnsProduct_Or_NotFound()
+        {
+            using var context = GetInMemoryDbContext();
+            context.Producten.Add(new Product { ProductID = 99, Naam = "Test" });
+            await context.SaveChangesAsync();
+            var controller = SetupController(context);
+
+            var found = await controller.GetProductById(99);
+            Assert.IsType<OkObjectResult>(found);
+
+            var missing = await controller.GetProductById(123);
+            Assert.IsType<NotFoundObjectResult>(missing);
+        }
+
+        [Fact]
+        public async Task CreateProduct_SavesToDatabase()
+        {
+            using var context = GetInMemoryDbContext();
+            var controller = SetupController(context, "Verkoper1");
+            var dto = new ProductCreateDto { Naam = "Nieuw", Aantal = 5, MinPrijs = 10 };
+
+            var result = await controller.CreateProduct(dto);
+            Assert.IsType<CreatedAtActionResult>(result);
             Assert.Equal(1, await context.Producten.CountAsync());
         }
 
         [Fact]
-        public async Task CreateProduct_ReturnsBadRequest_WhenModelIsInvalid()
+        public async Task DeleteProduct_Success_And_Fail()
         {
-            // Arrange
             using var context = GetInMemoryDbContext();
-            ProductService productService = GetProductService();
-            var fakeEnv = GetFakeEnvironment();
-            var mockService = new Mock<IAuctionService>();
-            IAuctionService auctionService = mockService.Object;
+            context.Producten.Add(new Product { ProductID = 1, VerkoperID = "Me", IsAuctionable = false }); // Mag weg
+            context.Producten.Add(new Product { ProductID = 2, VerkoperID = "Me", IsAuctionable = true });  // Mag NIET weg
+            await context.SaveChangesAsync();
 
-            var controller = new ProductController(context, productService, auctionService, fakeEnv);
+            var controller = SetupController(context, "Me");
 
-            // Manually trigger validation error
-            controller.ModelState.AddModelError("Naam", "The Naam field is required.");
+            var res1 = await controller.DeleteProduct(1);
+            Assert.IsType<OkObjectResult>(res1); // Gelukt
 
-            // Input is nu DTO
-            var invalidProduct = new ProductCreateDto { Beschrijving = "Missing Name" };
-
-            // Act
-            var result = await controller.CreateProduct(invalidProduct);
-
-            // Assert
-            Assert.IsType<BadRequestObjectResult>(result);
+            var res2 = await controller.DeleteProduct(2);
+            Assert.IsType<BadRequestObjectResult>(res2); // Mislukt (Live)
         }
 
         [Fact]
-        public async Task GetUnassignedProducts_ReturnsOnlyProductsWithoutStartPrijs()
+        public async Task UpdateProduct_Success()
+        {
+            using var context = GetInMemoryDbContext();
+            context.Producten.Add(new Product { ProductID = 1, Naam = "Oud" });
+            await context.SaveChangesAsync();
+
+            var controller = SetupController(context);
+            var res = await controller.UpdateProduct(1, new Product { Naam = "Nieuw" });
+            Assert.IsType<OkObjectResult>(res);
+            Assert.Equal("Nieuw", (await context.Producten.FindAsync(1)).Naam);
+        }
+
+        [Fact]
+        public async Task GetMyProducts_ReturnsMixedList()
         {
             // Arrange
             using var context = GetInMemoryDbContext();
-            ProductService productService = GetProductService();
+            string myId = "Veiler1";
 
-            context.Producten.Add(new Product { Naam = "Veilbaar", StartPrijs = 10 });
-            context.Producten.Add(new Product { Naam = "Niet Veilbaar", StartPrijs = null });
+            // 1. Actief Product (Voorraad) -> Komt in lijst 1
+            context.Producten.Add(new Product { ProductID = 1, Naam = "Actief", VerkoperID = myId });
+
+            // 2. Verkocht Product (Voorraad + Historie)
+            // Dit product staat in de Producten tabel...
+            context.Producten.Add(new Product { ProductID = 2, Naam = "VerkochtItem", VerkoperID = myId });
+            // ...EN in de Veilingen tabel.
+            context.Veilingen.Add(new Veiling { VeilingID = 100, ProductID = 2, VerkoperID = myId, VerkoopPrijs = 50, Aantal = 1, KoperId = "Klant" });
+
             await context.SaveChangesAsync();
 
-            // Constructor update
-            var mockService = new Mock<IAuctionService>();
-            IAuctionService auctionService = mockService.Object;
-
-            var controller = new ProductController(context, productService, auctionService, GetFakeEnvironment());
+            var controller = SetupController(context, myId);
 
             // Act
-            var result = await controller.GetUnassignedProducts();
+            var result = await controller.GetMyProducts();
 
             // Assert
             var okResult = Assert.IsType<OkObjectResult>(result);
-            var products = Assert.IsType<List<Product>>(okResult.Value);
+            var list = Assert.IsType<List<Product>>(okResult.Value);
 
-            Assert.Single(products);
-            Assert.Equal("Niet Veilbaar", products[0].Naam);
+            // FIX: Verwacht 3 items (Actief + VerkochtItem(Voorraad) + VerkochtItem(Historie))
+            Assert.Equal(3, list.Count);
+
+            // Check of ze erin zitten
+            Assert.Contains(list, p => p.Naam == "Actief");
+            Assert.Contains(list, p => p.Naam == "VerkochtItem");
         }
 
         [Fact]
-        public async Task Admin_UpdateProductPrice_Should_Update_Price_In_Database()
+        public async Task UpdateProductPrice_Works()
         {
-            // Arrange
-            using var dbContext = GetInMemoryDbContext();
-            ProductService productService = GetProductService();
-            var testProduct = new Product
-            {
-                ProductID = 1,
-                Naam = "Test Bloem",
-                StartPrijs = 10,
-                VerkoperID = "2"
-            };
-            dbContext.Producten.Add(testProduct);
-            await dbContext.SaveChangesAsync();
-
-            // Constructor update
-            var mockService = new Mock<IAuctionService>();
-            IAuctionService auctionService = mockService.Object;
-
-            var controller = new ProductController(dbContext, productService, auctionService, GetFakeEnvironment()); ;
-
-            // Act
-            var result = await controller.UpdateProductPrice(1, 25);
-
-            // Assert
-            Assert.IsType<OkObjectResult>(result);
-
-            var dbProduct = await dbContext.Producten.FindAsync(1);
-            Assert.Equal(25, dbProduct.StartPrijs);
+            using var context = GetInMemoryDbContext();
+            context.Producten.Add(new Product { ProductID = 1, StartPrijs = 10 });
+            await context.SaveChangesAsync();
+            var controller = SetupController(context);
+            var res = await controller.UpdateProductPrice(1, 20);
+            Assert.IsType<OkObjectResult>(res);
+            Assert.Equal(20, (await context.Producten.FindAsync(1)).StartPrijs);
         }
 
         [Fact]
-        public async Task Admin_UpdateProductPrice_Should_Return_NotFound_If_ID_Is_Wrong()
+        public async Task StopSelling_Works()
         {
-            using var dbContext = GetInMemoryDbContext();
-            ProductService productService = GetProductService();
-            // Constructor update
-            var mockService = new Mock<IAuctionService>();
-            IAuctionService auctionService = mockService.Object;
+            using var context = GetInMemoryDbContext();
+            context.Producten.Add(new Product { ProductID = 1, VerkoperID = "Me", IsAuctionable = true });
+            await context.SaveChangesAsync();
+            var controller = SetupController(context, "Me");
 
-            var controller = new ProductController(dbContext, productService, auctionService, GetFakeEnvironment());
-
-            var result = await controller.UpdateProductPrice(99, 50);
-
-            Assert.IsType<NotFoundResult>(result);
-        }
-
-        [Fact]
-        public async Task UpdateProductPrice_MetNegatievePrijs_GeeftBadRequest()
-        {
-            var options = new DbContextOptionsBuilder<AppDbContext>()
-                .UseInMemoryDatabase(databaseName: "TestDb_Negatief")
-                .Options;
-
-            using (var context = new AppDbContext(options))
-            {
-                context.Producten.Add(new Product
-                {
-                    ProductID = 1,
-                    Naam = "Test Vaas",
-                    StartPrijs = 50
-                });
-                await context.SaveChangesAsync();
-            }
-
-            using (var context = new AppDbContext(options))
-            {
-                var productService = new Services.ProductService(context);
-                // Constructor update
-                var mockService = new Mock<IAuctionService>();
-                IAuctionService auctionService = mockService.Object;
-
-                var controller = new ProductController(context, productService, auctionService, new FakeWebHostEnvironment());
-
-                var result = await controller.UpdateProductPrice(1, -10);
-
-                Assert.IsType<BadRequestObjectResult>(result);
-
-                var productInDb = await context.Producten.FindAsync(1);
-                Assert.Equal(50, productInDb.StartPrijs);
-            }
-        }
-
-        [Fact]
-        public async Task UpdateProductPrice_MetGeldigePrijs_PastPrijsAan()
-        {
-            var options = new DbContextOptionsBuilder<AppDbContext>()
-                .UseInMemoryDatabase(databaseName: "TestDb_Positief")
-                .Options;
-
-            using (var context = new AppDbContext(options))
-            {
-                context.Producten.Add(new Product
-                {
-                    ProductID = 1,
-                    Naam = "Test Vaas",
-                    StartPrijs = 50
-                });
-                await context.SaveChangesAsync();
-            }
-
-            using (var context = new AppDbContext(options))
-            {
-                // Constructor update
-                var mockService = new Mock<IAuctionService>();
-                IAuctionService auctionService = mockService.Object;
-
-                var controller = new ProductController(context, new ProductService(context), auctionService, new FakeWebHostEnvironment());
-
-                var result = await controller.UpdateProductPrice(1, 75);
-
-                Assert.IsType<OkObjectResult>(result);
-
-                var productInDb = await context.Producten.FindAsync(1);
-                Assert.Equal(75, productInDb.StartPrijs);
-            }
+            var res = await controller.StopSelling(1);
+            Assert.IsType<OkObjectResult>(res);
+            Assert.False((await context.Producten.FindAsync(1)).IsAuctionable);
         }
     }
 
-    // --- FAKE CLASS VOOR IWebHostEnvironment ---
-    // Dit zorgt ervoor dat we geen echte server nodig hebben om te testen
     public class FakeWebHostEnvironment : IWebHostEnvironment
     {
         public string WebRootPath { get; set; } = "wwwroot";

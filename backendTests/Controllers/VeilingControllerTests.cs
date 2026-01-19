@@ -1,7 +1,9 @@
 ﻿using backend.Controllers;
 using backend.interfaces;
+using backend.Models;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Xunit;
 
@@ -9,50 +11,141 @@ namespace backend.Controllers.Tests
 {
     public class VeilingControllerTests
     {
+        private readonly Mock<IAuctionService> _mockService;
+        private readonly VeilingController _controller;
+
+        public VeilingControllerTests()
+        {
+            _mockService = new Mock<IAuctionService>();
+            _controller = new VeilingController(_mockService.Object);
+        }
+
         [Fact]
         public async Task StartVeiling_ShouldCallService_AndReturnOk()
         {
             // Arrange
-            var mockService = new Mock<IAuctionService>();
-
-            // Setup: Zorg dat de service taak succesvol afrondt
-            mockService.Setup(s => s.StartAuctionAsync(It.IsAny<int>()))
-                       .Returns(Task.CompletedTask);
-
-            // De nieuwe constructor verwacht alleen de Service
-            var controller = new VeilingController(mockService.Object);
-
             int testProductId = 1;
+            _mockService.Setup(s => s.StartAuctionAsync(testProductId)).Returns(Task.CompletedTask);
 
             // Act
-            // We roepen nu StartVeiling aan met een ID (int) in plaats van een Product object
-            var result = await controller.StartVeiling(testProductId);
+            var result = await _controller.StartVeiling(testProductId);
 
             // Assert
-            // 1. Check of de service daadwerkelijk is aangeroepen met het juiste ID
-            mockService.Verify(s => s.StartAuctionAsync(testProductId), Times.Once);
-
-            // 2. Check of we een OK response krijgen
+            _mockService.Verify(s => s.StartAuctionAsync(testProductId), Times.Once);
             Assert.IsType<OkObjectResult>(result);
         }
 
         [Fact]
-        public async Task StartQueue_ShouldCallService_AndReturnOk()
+        public void GetActive_ShouldReturnOk_WithAuction()
         {
             // Arrange
-            var mockService = new Mock<IAuctionService>();
-
-            // Setup
-            mockService.Setup(s => s.StartQueueAsync())
-                       .Returns(Task.CompletedTask);
-
-            var controller = new VeilingController(mockService.Object);
+            var auction = new AuctionState { ProductId = 1, IsRunning = true };
+            _mockService.Setup(s => s.GetActiveAuction()).Returns(auction);
 
             // Act
-            var result = await controller.StartQueue();
+            var result = _controller.GetActive();
 
             // Assert
-            mockService.Verify(s => s.StartQueueAsync(), Times.Once);
+            var okResult = Assert.IsType<OkObjectResult>(result);
+            Assert.Equal(auction, okResult.Value);
+        }
+
+        [Fact]
+        public void GetActive_ShouldReturnNotFound_WhenNoAuction()
+        {
+            // Arrange
+            _mockService.Setup(s => s.GetActiveAuction()).Returns((AuctionState)null);
+
+            // Act
+            var result = _controller.GetActive();
+
+            // Assert
+            // Let op: In je huidige controller code return je NotFound() als hij null is.
+            // (Als je mijn eerdere fix had toegepast was het Ok(null), maar ik volg hier de code uit je upload)
+            Assert.IsType<NotFoundObjectResult>(result);
+        }
+
+        [Fact]
+        public void GetQueueIds_ShouldReturnList()
+        {
+            // Arrange
+            var ids = new List<int> { 1, 2, 3 };
+            _mockService.Setup(s => s.GetQueueIds()).Returns(ids);
+
+            // Act
+            var result = _controller.GetQueueIds();
+
+            // Assert
+            var okResult = Assert.IsType<OkObjectResult>(result);
+            Assert.Equal(ids, okResult.Value);
+        }
+
+        [Fact]
+        public void AddToQueue_ShouldCallService()
+        {
+            // Arrange
+            var ids = new List<int> { 1, 2 };
+
+            // Act
+            var result = _controller.AddToQueue(ids);
+
+            // Assert
+            _mockService.Verify(s => s.AddToQueue(ids), Times.Once);
+            Assert.IsType<OkObjectResult>(result);
+        }
+
+        [Fact]
+        public async Task StartQueue_ShouldCallService()
+        {
+            // Act
+            var result = await _controller.StartQueue();
+
+            // Assert
+            _mockService.Verify(s => s.StartQueueAsync(), Times.Once);
+            Assert.IsType<OkObjectResult>(result);
+        }
+
+        [Fact]
+        public async Task Koop_ValidRequest_ReturnsOk()
+        {
+            // Arrange
+            var request = new KoopRequest { ProductId = 1, BuyerName = "Jan", Aantal = 1 };
+            _mockService
+                .Setup(s => s.PlaatsBod(request.ProductId, request.BuyerName, request.BuyerId, request.Aantal))
+                .ReturnsAsync(true);
+
+            // Act
+            var result = await _controller.Koop(request);
+
+            // Assert
+            var okResult = Assert.IsType<OkObjectResult>(result);
+            // Je kunt checken of de message in het resultaat zit als je wilt
+        }
+
+        [Fact]
+        public async Task Koop_InvalidRequest_ReturnsBadRequest()
+        {
+            // Arrange
+            var request = new KoopRequest { ProductId = 1, BuyerName = "Jan" };
+            _mockService
+                .Setup(s => s.PlaatsBod(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int>()))
+                .ReturnsAsync(false);
+
+            // Act
+            var result = await _controller.Koop(request);
+
+            // Assert
+            Assert.IsType<BadRequestObjectResult>(result);
+        }
+
+        [Fact]
+        public async Task ForceNext_ShouldCallService()
+        {
+            // Act
+            var result = await _controller.ForceNext();
+
+            // Assert
+            _mockService.Verify(s => s.ForceNextAsync(), Times.Once);
             Assert.IsType<OkObjectResult>(result);
         }
     }

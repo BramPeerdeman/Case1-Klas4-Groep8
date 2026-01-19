@@ -13,6 +13,9 @@ namespace backend.Services
         private readonly IServiceScopeFactory _scopeFactory;
         private readonly IHubContext<AuctionHub> _hub;
 
+        // Thread Safety Lock (Atomic processing for bids)
+        private readonly SemaphoreSlim _semaphore = new SemaphoreSlim(1, 1);
+
         // IN-MEMORY STATUS
         private List<AuctionState> _activeAuctions = new List<AuctionState>();
         private List<int> _productQueue = new List<int>();
@@ -49,6 +52,7 @@ namespace backend.Services
                 }
             }
         }
+
         public void AddToQueue(List<int> productIds)
         {
             // VALIDATION: Allow products scheduled for today or earlier
@@ -57,8 +61,6 @@ namespace backend.Services
                 var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
                 var today = DateTime.Today;
 
-                // CHECK: Strict date validation ensures future products are ignored here, 
-                // even if IsAuctionable was set to true by the controller.
                 var validIds = context.Producten
                     .Where(p => productIds.Contains(p.ProductID) &&
                                 p.BeginDatum.HasValue &&
@@ -83,7 +85,6 @@ namespace backend.Services
             }
         }
 
-        // --- NEW IMPLEMENTATION ---
         public List<int> GetQueueIds()
         {
             return new List<int>(_productQueue);
@@ -133,7 +134,6 @@ namespace backend.Services
 
             // 1. Fetch Start Price from DB
             decimal startPrijs = 0;
-            // decimal minPrijs = 0;
             using (var scope = _scopeFactory.CreateScope())
             {
                 var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -148,6 +148,7 @@ namespace backend.Services
 
             // 2. Initialize the in-memory current price
             auction.CurrentPrice = startPrijs;
+            auction.StartPrice = startPrijs; // Ensure StartPrice is set for the TickerService
 
             // 3. Send SignalR update including startPrijs
             await _hub.Clients.All.SendAsync("ReceiveNewAuction", new
@@ -164,104 +165,111 @@ namespace backend.Services
             return auction ?? new AuctionState { ProductId = productId, IsRunning = false };
         }
 
-        public async Task<bool> PlaatsBod(int productId, string koperNaam, decimal bedrag, string koperId, int aantal)
+        public async Task<bool> PlaatsBod(int productId, string koperNaam, string koperId, int aantal)
         {
-            var auction = _activeAuctions.FirstOrDefault(a => a.ProductId == productId);
-
-            // Check if auction is valid in memory
-            if (auction == null || !auction.IsRunning || auction.IsSold) return false;
-
-            // 1. Update Status in memory (Stop the clock immediately to prevent double clicks)
-            auction.IsRunning = false;
-            auction.IsSold = true;
-            auction.BuyerName = koperNaam;
-            auction.FinalPrice = auction.CurrentPrice;
-
-            // Variables to hold data for SignalR (extracted from DB scope)
-            string sellerId = "";
-            string productName = "";
-
-            // 2. Database Operations
-            using (var scope = _scopeFactory.CreateScope())
+            await _semaphore.WaitAsync();
+            try
             {
-                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var auction = _activeAuctions.FirstOrDefault(a => a.ProductId == productId);
 
-                // Fetch product to check stock
-                var prod = await context.Producten.FindAsync(productId);
+                if (auction == null || !auction.IsRunning || auction.IsSold) return false;
 
-                // Validation: Product must exist and have enough stock
-                if (prod == null || prod.Aantal < aantal)
+                var duration = TimeSpan.FromSeconds(30); // OOK 30 seconden
+                var elapsed = DateTime.Now - auction.StartTime;
+
+                double progress = elapsed.TotalMilliseconds / duration.TotalMilliseconds;
+                progress = Math.Max(0, Math.Min(1, progress));
+
+                // Formule: Start - ((Start - Min) * Progress)
+                decimal start = auction.StartPrice;
+                decimal min = auction.MinPrice;
+                decimal exactPrijs = start - ((start - min) * (decimal)progress);
+
+                // Afronden op 2 decimalen
+                exactPrijs = Math.Round(exactPrijs, 2);
+
+                // Opslaan
+                auction.CurrentPrice = exactPrijs;
+                auction.FinalPrice = exactPrijs;
+                // -----------------------------------------------------
+
+                // Update Status
+                auction.IsRunning = false;
+                auction.IsSold = true;
+                auction.BuyerName = koperNaam;
+
+                // Database logic
+                using (var scope = _scopeFactory.CreateScope())
                 {
-                    // Rollback memory state if validation fails
-                    auction.IsRunning = true;
-                    auction.IsSold = false;
-                    return false;
-                }
+                    var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                    var prod = await context.Producten.FindAsync(productId);
 
-                // Capture data for notification before modifying/saving
-                sellerId = prod.VerkoperID ?? "";
-                productName = prod.Naam;
-
-                // Deduct Stock
-                prod.Aantal -= aantal;
-
-                // --- NEW LOGIC: Handle Partial Sales ---
-                if (prod.Aantal > 0)
-                {
-                    // If stock remains, re-add to the back of the queue
-                    if (!_productQueue.Contains(productId))
+                    if (prod == null || prod.Aantal < aantal)
                     {
-                        _productQueue.Add(productId);
+                        auction.IsRunning = true;
+                        auction.IsSold = false;
+                        return false;
                     }
+
+                    // Voorraad update
+                    prod.Aantal -= aantal;
+                    string sellerId = prod.VerkoperID ?? "";
+                    string productName = prod.Naam;
+
+                    // Restpartij logica
+                    if (prod.Aantal > 0)
+                    {
+                        if (!_productQueue.Contains(productId)) _productQueue.Insert(0, productId);
+                    }
+
+                    // Opslaan in DB met de BEREKENDE prijs
+                    var veiling = new Veiling
+                    {
+                        ProductID = productId,
+                        VerkoopPrijs = (float)auction.FinalPrice, // <--- Dit is nu de exacte prijs
+                        Aantal = aantal,
+                        StartDatumTijd = auction.StartTime,
+                        EindTijd = elapsed,
+                        VerkoperID = sellerId,
+                        KoperId = koperId
+                    };
+                    context.Veilingen.Add(veiling);
+
+                    if (prod.Aantal <= 0)
+                    {
+                        prod.IsAuctionable = false;
+                        prod.Aantal = 0;
+                    }
+                    await context.SaveChangesAsync();
+
+                    // SignalR Update
+                    await _hub.Clients.All.SendAsync("ReceiveAuctionResult", new
+                    {
+                        productId = productId,
+                        sold = true,
+                        buyer = koperNaam,
+                        price = auction.FinalPrice,
+                        amount = aantal,
+                        sellerId = sellerId,
+                        productName = productName
+                    });
                 }
-                // ----------------------------------------
 
-                // Veiling loggen (Permanent Receipt)
-                var veiling = new Veiling
+                // Auto-Play
+                if (_isQueueRunning)
                 {
-                    ProductID = productId,
-                    VerkoopPrijs = (float)bedrag,
-                    Aantal = aantal,
-                    StartDatumTijd = auction.StartTime,
-                    EindTijd = DateTime.Now - auction.StartTime,
-                    VerkoperID = prod.VerkoperID ?? "0",
-                    KoperId = koperId
-                };
-                context.Veilingen.Add(veiling);
-
-                // If stock is empty, it is no longer auctionable. 
-                if (prod.Aantal <= 0)
-                {
-                    prod.IsAuctionable = false;
-                    prod.Aantal = 0; // Prevent negative numbers just in case
+                    _ = Task.Run(async () => {
+                        await Task.Delay(5000);
+                        await StartNextInQueue();
+                    });
                 }
 
-                await context.SaveChangesAsync();
+                return true;
             }
-
-            // 3. SignalR Update (Live scherm)
-            await _hub.Clients.All.SendAsync("ReceiveAuctionResult", new
+            finally
             {
-                productId = productId,
-                sold = true,
-                buyer = koperNaam,
-                price = bedrag,
-                amount = aantal,
-                sellerId = sellerId,
-                productName = productName
-            });
-
-            // 4. Auto-Play Logic
-            if (_isQueueRunning)
-            {
-                _ = Task.Run(async () =>
-                {
-                    await Task.Delay(10000);
-                    await StartNextInQueue();
-                });
+                _semaphore.Release();
             }
-
-            return true;
         }
 
         public async Task ForceNextAsync()

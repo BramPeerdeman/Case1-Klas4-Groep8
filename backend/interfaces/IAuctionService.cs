@@ -14,8 +14,8 @@ namespace backend.interfaces
         Task StartAuctionAsync(int productId);
         AuctionState GetStatus(int productId);
 
-        // Updated signature to include 'aantal'
-        Task<bool> PlaatsBod(int productId, string koperNaam, decimal bedrag, string koperId, int aantal);
+        // Updated: Removed 'decimal bedrag' to enforce server-side pricing
+        Task<bool> PlaatsBod(int productId, string koperNaam, string koperId, int aantal);
 
         Task CreateQueueAsync();
         Task StartnextAuctionAsync();
@@ -26,7 +26,6 @@ namespace backend.interfaces
 
         void RemoveFromQueue(int productId);
 
-        // --- New Method ---
         List<int> GetQueueIds();
     }
 }

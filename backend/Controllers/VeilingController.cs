@@ -13,7 +13,6 @@ namespace backend.Controllers
         public int ProductId { get; set; }
         public string? BuyerName { get; set; }
         public string? BuyerId { get; set; }
-        public decimal Price { get; set; }
         public int Aantal { get; set; } = 1; // Default to 1
     }
 
@@ -28,7 +27,7 @@ namespace backend.Controllers
             _auctionService = auctionService;
         }
 
-        // --- NEW ENDPOINT: Get active queue IDs ---
+        // Get active queue IDs ---
         [HttpGet("queue/ids")]
         public IActionResult GetQueueIds()
         {
@@ -88,11 +87,9 @@ namespace backend.Controllers
         [HttpPost("koop")]
         public async Task<IActionResult> Koop([FromBody] KoopRequest request)
         {
-            // Pass the Aantal to the service
             bool gelukt = await _auctionService.PlaatsBod(
                 request.ProductId,
                 request.BuyerName,
-                request.Price,
                 request.BuyerId,
                 request.Aantal
             );
