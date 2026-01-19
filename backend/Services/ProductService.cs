@@ -30,7 +30,6 @@ namespace backend.Services
                 .ToListAsync();
         }
 
-        // --- ADDED METHOD ---
         public async Task<List<Product>> GetScheduledProductsAsync()
         {
             var today = DateTime.Today;
@@ -40,8 +39,39 @@ namespace backend.Services
                 .Where(p => p.StartPrijs != null &&
                             p.IsAuctionable == true &&
                             p.BeginDatum.HasValue &&
-                            p.BeginDatum.Value.Date > today) // Future dates only
+                            p.BeginDatum.Value.Date > today)
                 .ToListAsync();
+        }
+
+        // --- ADDED IMPLEMENTATION ---
+        public async Task ResetExpiredProductsAsync()
+        {
+            var today = DateTime.Today;
+
+            // Find products that:
+            // 1. Are marked as auctionable
+            // 2. Have not been sold (KoperID is null)
+            // 3. Are scheduled for a date strictly before today
+            var expiredProducts = await _context.Producten
+                .Where(p => p.IsAuctionable == true &&
+                            p.KoperID == null &&
+                            p.BeginDatum.HasValue &&
+                            p.BeginDatum.Value.Date < today)
+                .ToListAsync();
+
+            if (expiredProducts.Any())
+            {
+                foreach (var product in expiredProducts)
+                {
+                    // Reset status so Seller can edit/reschedule
+                    product.IsAuctionable = false;
+
+                    // Reset price so it appears in Auction Master's "Onveilbare lijst"
+                    product.StartPrijs = null;
+                }
+
+                await _context.SaveChangesAsync();
+            }
         }
     }
 }
