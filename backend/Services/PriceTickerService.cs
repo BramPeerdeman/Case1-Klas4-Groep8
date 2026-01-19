@@ -18,7 +18,7 @@ namespace backend.Services
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            // Wait for application startup
+            // Even wachten bij opstarten
             await Task.Delay(2000, stoppingToken);
 
             while (!stoppingToken.IsCancellationRequested)
@@ -27,35 +27,36 @@ namespace backend.Services
                 {
                     var activeAuction = _auctionService.GetActiveAuction();
 
-                    // Check if there is an active, running auction
                     if (activeAuction != null && activeAuction.IsRunning && !activeAuction.IsSold)
                     {
-                        // Calculate elapsed time in seconds
+                        // 1. Hoe lang zijn we bezig?
                         var elapsed = DateTime.Now - activeAuction.StartTime;
 
-                        // Define price drop rate (e.g., 1.00 per second)
-                        decimal dropRatePerSecond = 1.00m;
+                        // 2. DEFINITIEVE REGEL: De veiling duurt ALTIJD 30 seconden
+                        var totalDuration = TimeSpan.FromSeconds(30);
 
-                        // Calculate how much the price should have dropped by now
-                        decimal priceDrop = (decimal)elapsed.TotalSeconds * dropRatePerSecond;
+                        // 3. Bereken percentage (0.0 tot 1.0)
+                        double progress = elapsed.TotalMilliseconds / totalDuration.TotalMilliseconds;
 
-                        // Calculate new price based on the fixed StartPrice
-                        decimal newPrice = activeAuction.StartPrice - priceDrop;
+                        // Begrens tussen 0% en 100%
+                        if (progress > 1.0) progress = 1.0;
+                        if (progress < 0.0) progress = 0.0;
 
-                        // Ensure we don't drop below the minimum price
-                        if (newPrice < activeAuction.MinPrice)
-                        {
-                            newPrice = activeAuction.MinPrice;
-                        }
+                        // 4. Formule: Start - (Verschil * Percentage)
+                        decimal start = activeAuction.StartPrice;
+                        decimal min = activeAuction.MinPrice;
+                        decimal priceDrop = (start - min) * (decimal)progress;
 
-                        // Update the shared state
+                        decimal newPrice = start - priceDrop;
+
+                        // 5. Update state
                         activeAuction.CurrentPrice = newPrice;
 
-                        // Send update to frontend
+                        // 6. Stuur update (Elke 100ms!)
                         await _hub.Clients.All.SendAsync("PrijsUpdate", activeAuction.CurrentPrice, cancellationToken: stoppingToken);
 
-                        // Check if we hit the bottom (Timeout)
-                        if (activeAuction.CurrentPrice <= activeAuction.MinPrice)
+                        // Timeout check
+                        if (progress >= 1.0 || activeAuction.CurrentPrice <= activeAuction.MinPrice)
                         {
                             await _auctionService.TimeoutAuction(activeAuction.ProductId);
                         }
@@ -66,10 +67,8 @@ namespace backend.Services
                     Console.WriteLine($"Ticker Error: {ex.Message}");
                 }
 
-                // Wait 1 second before next update. 
-                // Since we calculate based on timestamps, this delay only affects the 
-                // "framerate" of updates, not the accuracy of the price.
-                await Task.Delay(1000, stoppingToken);
+                // CRUCIAAL: 100ms delay zorgt voor vloeiende updates op het scherm
+                await Task.Delay(100, stoppingToken);
             }
         }
     }

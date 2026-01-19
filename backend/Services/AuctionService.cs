@@ -167,68 +167,70 @@ namespace backend.Services
 
         public async Task<bool> PlaatsBod(int productId, string koperNaam, string koperId, int aantal)
         {
-            // Acquire lock to ensure atomic processing (prevents race conditions)
             await _semaphore.WaitAsync();
             try
             {
                 var auction = _activeAuctions.FirstOrDefault(a => a.ProductId == productId);
 
-                // Check if auction is valid in memory
                 if (auction == null || !auction.IsRunning || auction.IsSold) return false;
 
-                // 1. Update Status in memory (Stop the clock immediately)
+                var duration = TimeSpan.FromSeconds(30); // OOK 30 seconden
+                var elapsed = DateTime.Now - auction.StartTime;
+
+                double progress = elapsed.TotalMilliseconds / duration.TotalMilliseconds;
+                progress = Math.Max(0, Math.Min(1, progress));
+
+                // Formule: Start - ((Start - Min) * Progress)
+                decimal start = auction.StartPrice;
+                decimal min = auction.MinPrice;
+                decimal exactPrijs = start - ((start - min) * (decimal)progress);
+
+                // Afronden op 2 decimalen
+                exactPrijs = Math.Round(exactPrijs, 2);
+
+                // Opslaan
+                auction.CurrentPrice = exactPrijs;
+                auction.FinalPrice = exactPrijs;
+                // -----------------------------------------------------
+
+                // Update Status
                 auction.IsRunning = false;
                 auction.IsSold = true;
                 auction.BuyerName = koperNaam;
 
-                // SERVER AUTHORITY: Force the final price to be the internal current price
-                auction.FinalPrice = auction.CurrentPrice;
-
-                string sellerId = "";
-                string productName = "";
-
-                // 2. Database Operations
+                // Database logic
                 using (var scope = _scopeFactory.CreateScope())
                 {
                     var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-
                     var prod = await context.Producten.FindAsync(productId);
 
-                    // Validation: Product must exist and have enough stock
                     if (prod == null || prod.Aantal < aantal)
                     {
-                        // Rollback memory state if validation fails
                         auction.IsRunning = true;
                         auction.IsSold = false;
                         return false;
                     }
 
-                    sellerId = prod.VerkoperID ?? "";
-                    productName = prod.Naam;
-
-                    // Deduct Stock
+                    // Voorraad update
                     prod.Aantal -= aantal;
+                    string sellerId = prod.VerkoperID ?? "";
+                    string productName = prod.Naam;
 
-                    // --- Handle Partial Sales ---
+                    // Restpartij logica
                     if (prod.Aantal > 0)
                     {
-                        // MODIFIED: Inject at index 0 to sell remaining stock immediately
-                        if (!_productQueue.Contains(productId))
-                        {
-                            _productQueue.Insert(0, productId);
-                        }
+                        if (!_productQueue.Contains(productId)) _productQueue.Insert(0, productId);
                     }
 
-                    // Veiling loggen (Permanent Receipt)
+                    // Opslaan in DB met de BEREKENDE prijs
                     var veiling = new Veiling
                     {
                         ProductID = productId,
-                        // STRICT ENFORCEMENT: Use Server Price, not Client Price
-                        VerkoopPrijs = (float)auction.FinalPrice,
+                        VerkoopPrijs = (float)auction.FinalPrice, // <--- Dit is nu de exacte prijs
                         Aantal = aantal,
                         StartDatumTijd = auction.StartTime,
-                        EindTijd = DateTime.Now - auction.StartTime,
-                        VerkoperID = prod.VerkoperID ?? "0",
+                        EindTijd = elapsed,
+                        VerkoperID = sellerId,
                         KoperId = koperId
                     };
                     context.Veilingen.Add(veiling);
@@ -238,28 +240,26 @@ namespace backend.Services
                         prod.IsAuctionable = false;
                         prod.Aantal = 0;
                     }
-
                     await context.SaveChangesAsync();
+
+                    // SignalR Update
+                    await _hub.Clients.All.SendAsync("ReceiveAuctionResult", new
+                    {
+                        productId = productId,
+                        sold = true,
+                        buyer = koperNaam,
+                        price = auction.FinalPrice,
+                        amount = aantal,
+                        sellerId = sellerId,
+                        productName = productName
+                    });
                 }
 
-                // 3. SignalR Update (Live scherm)
-                await _hub.Clients.All.SendAsync("ReceiveAuctionResult", new
-                {
-                    productId = productId,
-                    sold = true,
-                    buyer = koperNaam,
-                    price = auction.FinalPrice, // Send enforced server price
-                    amount = aantal,
-                    sellerId = sellerId,
-                    productName = productName
-                });
-
-                // 4. Auto-Play Logic
+                // Auto-Play
                 if (_isQueueRunning)
                 {
-                    _ = Task.Run(async () =>
-                    {
-                        await Task.Delay(10000); // Small delay to show result
+                    _ = Task.Run(async () => {
+                        await Task.Delay(5000);
                         await StartNextInQueue();
                     });
                 }
@@ -268,7 +268,6 @@ namespace backend.Services
             }
             finally
             {
-                // Always release the lock
                 _semaphore.Release();
             }
         }
