@@ -233,8 +233,11 @@ namespace backend.Controllers
         [HttpGet("product/onveilbarelist")]
         public async Task<IActionResult> GetUnassignedProducts()
         {
+            var today = DateTime.Today; // Use strictly today (matches logic in Service)
+
             var ProductenZonderStartprijs = await _context.Producten
-                .Where(p => p.StartPrijs == null)
+                .Where(p => p.StartPrijs == null &&
+                           (!p.BeginDatum.HasValue || p.BeginDatum.Value.Date >= today)) // ADDED FILTER
                 .AsNoTracking()
                 .ToListAsync();
 
