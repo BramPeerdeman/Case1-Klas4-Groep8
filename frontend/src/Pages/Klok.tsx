@@ -25,6 +25,7 @@ import { useEffect, useState, useRef } from "react";
 import * as signalR from "@microsoft/signalr";
 import { useAuth } from "../Contexts/AuthContext";
 import { getImageUrl } from "../Utils/ImageUtils";
+import { useNotification } from "../Contexts/NotificationContext";
 
 // Interfaces for the History API response
 interface PriceRecord {
@@ -74,6 +75,7 @@ export default function Klok() {
 
   const timerRef = useRef<number | null>(null);
   const connectionRef = useRef<signalR.HubConnection | null>(null);
+  const { notify } = useNotification();
 
   const baseUrl = import.meta.env.VITE_API_URL || "http://localhost:5299";
   //   const dropDuration = 30000;
@@ -205,10 +207,11 @@ export default function Klok() {
       });
 
       if (!response.ok) {
-        console.warn("Koop mislukt");
-      }
+            notify("Helaas! Iemand anders was je net voor.", "error", "top-center");
+        }
     } catch (e) {
-      console.error("Fout bij kopen", e);
+        console.error("Fout bij kopen", e);
+        notify("Er ging iets mis met de verbinding.", "warning", "bottom-right");
     }
   };
 

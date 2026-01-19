@@ -77,7 +77,7 @@ const ProductCard: React.FC<ProductProps> = ({ product, onDelete, onEdit, onStop
       
       <CardActions sx={{ justifyContent: 'space-between', p: 2, pt: 0, flexWrap: 'wrap', gap: 1 }}>
         <Box display="flex" gap={1}>
-            <Button size="small" variant="contained" onClick={() => navigate(`/klok/${product.id}`)}>
+            <Button size="small" variant="contained" onClick={() => navigate(`/product/${product.id}`)}>
             Bekijken
             </Button>
             
