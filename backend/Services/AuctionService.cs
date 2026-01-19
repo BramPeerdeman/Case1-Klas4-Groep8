@@ -148,6 +148,7 @@ namespace backend.Services
 
             // 2. Initialize the in-memory current price
             auction.CurrentPrice = startPrijs;
+            auction.StartPrice = startPrijs; // Ensure StartPrice is set for the TickerService
 
             // 3. Send SignalR update including startPrijs
             await _hub.Clients.All.SendAsync("ReceiveNewAuction", new
@@ -164,7 +165,6 @@ namespace backend.Services
             return auction ?? new AuctionState { ProductId = productId, IsRunning = false };
         }
 
-        // Updated Signature: Removed 'decimal bedrag'
         public async Task<bool> PlaatsBod(int productId, string koperNaam, string koperId, int aantal)
         {
             // Acquire lock to ensure atomic processing (prevents race conditions)
@@ -174,7 +174,6 @@ namespace backend.Services
                 var auction = _activeAuctions.FirstOrDefault(a => a.ProductId == productId);
 
                 // Check if auction is valid in memory
-                // If a previous thread sold it, auction.IsSold will be true here
                 if (auction == null || !auction.IsRunning || auction.IsSold) return false;
 
                 // 1. Update Status in memory (Stop the clock immediately)
@@ -213,10 +212,10 @@ namespace backend.Services
                     // --- Handle Partial Sales ---
                     if (prod.Aantal > 0)
                     {
-                        // If stock remains, re-add to the back of the queue
+                        // MODIFIED: Inject at index 0 to sell remaining stock immediately
                         if (!_productQueue.Contains(productId))
                         {
-                            _productQueue.Add(productId);
+                            _productQueue.Insert(0, productId);
                         }
                     }
 
@@ -260,7 +259,7 @@ namespace backend.Services
                 {
                     _ = Task.Run(async () =>
                     {
-                        await Task.Delay(10000);
+                        await Task.Delay(10000); // Small delay to show result
                         await StartNextInQueue();
                     });
                 }
