@@ -79,7 +79,13 @@ const handleLogin = async (event: React.FormEvent) => {
             
             {/* NIEUW: Toon de foutmelding als die er is */}
             {error && (
-              <Typography color="error" align="center" sx={{ mt: 1 }}>
+              <Typography 
+                color="error" 
+                align="center" 
+                sx={{ mt: 1 }}
+                role="alert" 
+                aria-live="assertive"
+              >
                 {error}
               </Typography>
             )}
@@ -87,13 +93,13 @@ const handleLogin = async (event: React.FormEvent) => {
             {/* NIEUW: Dit is nu een 'submit' knop voor het formulier */}
             <Button type="submit" variant="contained" color="primary" fullWidth sx={{ mt: 1 }}>Inloggen</Button>
             <Button 
-    variant="outlined" 
-    color="secondary" 
-    fullWidth 
-    onClick={() => navigate("/register")}  // <-- VOEG DEZE REGEL TOE
->
-    Registreren
-</Button>
+                variant="outlined" 
+                color="secondary" 
+                fullWidth 
+                onClick={() => navigate("/register")}  // <-- VOEG DEZE REGEL TOE
+            >
+                Registreren
+            </Button>
           </Box>
         </CardContent>
       </Card>

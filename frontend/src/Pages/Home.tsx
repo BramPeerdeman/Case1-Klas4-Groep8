@@ -168,7 +168,7 @@ export default function Home() {
                 sx={{ mb: 2, fontWeight: "bold", fontSize: "1rem", px: 2 }}
               />
               <Typography
-                variant="h2"
+                variant="h1"
                 fontWeight="800"
                 gutterBottom
                 sx={{ textShadow: "2px 2px 4px rgba(0,0,0,0.5)" }}
@@ -197,7 +197,7 @@ export default function Home() {
             </>
           ) : (
             <>
-              <Typography variant="h2" fontWeight="bold" gutterBottom>
+              <Typography variant="h1" fontWeight="bold" gutterBottom>
                 Welkom bij Bloemenveiling
               </Typography>
               <Typography variant="h5" sx={{ mb: 4, opacity: 0.9 }}>
@@ -233,7 +233,7 @@ export default function Home() {
               flexWrap="wrap"
               gap={2}
             >
-              <Typography variant="h4" fontWeight="bold" color="text.primary">
+              <Typography variant="h2" fontWeight="bold" color="text.primary">
                 Actueel Aanbod
               </Typography>
 
@@ -252,6 +252,7 @@ export default function Home() {
                   variant="outlined"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
+                  inputProps={{ 'aria-label': 'Zoek product' }}
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
@@ -267,6 +268,10 @@ export default function Home() {
                   onChange={(e) => setSelectedLocation(e.target.value)}
                   size="small"
                   sx={{ minWidth: 150 }}
+                  SelectProps={{
+                    native: false,
+                    inputProps: { 'aria-label': 'Filter op locatie' }
+                  }}
                 >
                   {LOCATIES.map((loc) => (
                     <MenuItem key={loc} value={loc}>
@@ -339,6 +344,7 @@ export default function Home() {
                             <Avatar
                               src={getImageUrl(product.imageUrl)}
                               variant="rounded"
+                              alt={product.naam}
                             />
                           </ListItemAvatar>
                           <ListItemText
