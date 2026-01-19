@@ -13,8 +13,11 @@ namespace backend.Services
         private readonly IServiceScopeFactory _scopeFactory;
         private readonly IHubContext<AuctionHub> _hub;
 
-        // Thread Safety Lock (Atomic processing for bids)
+        // Thread Safety Lock (Atomic processing for bids AND list management)
         private readonly SemaphoreSlim _semaphore = new SemaphoreSlim(1, 1);
+        
+        // Lock object specifically for the _activeAuctions list to prevent crashes with PriceTicker
+        private readonly object _listLock = new object();
 
         // IN-MEMORY STATUS
         private List<AuctionState> _activeAuctions = new List<AuctionState>();
@@ -29,7 +32,12 @@ namespace backend.Services
 
         public async Task TimeoutAuction(int productId)
         {
-            var auction = _activeAuctions.FirstOrDefault(a => a.ProductId == productId);
+            AuctionState? auction;
+            lock (_listLock) 
+            {
+                auction = _activeAuctions.FirstOrDefault(a => a.ProductId == productId);
+            }
+
             if (auction != null && auction.IsRunning)
             {
                 auction.IsRunning = false;
@@ -55,44 +63,62 @@ namespace backend.Services
 
         public void AddToQueue(List<int> productIds)
         {
-            // VALIDATION: Allow products scheduled for today or earlier
+            // VALIDATION: Allow products scheduled for today or earlier (Timezone Safe)
             using (var scope = _scopeFactory.CreateScope())
             {
                 var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-                var today = DateTime.Today;
+                
+                // FIX 1: Get 'Today' in Dutch Time (CET)
+                // If on Linux/Docker, use "Europe/Amsterdam", on Windows "W. Europe Standard Time"
+                // Using a safe fallback approach:
+                var utcNow = DateTime.UtcNow;
+                var cetZone = TimeZoneInfo.FindSystemTimeZoneById(Environment.OSVersion.Platform == PlatformID.Unix ? "Europe/Amsterdam" : "W. Europe Standard Time");
+                var todayInHolland = TimeZoneInfo.ConvertTimeFromUtc(utcNow, cetZone).Date;
 
                 var validIds = context.Producten
                     .Where(p => productIds.Contains(p.ProductID) &&
                                 p.BeginDatum.HasValue &&
-                                p.BeginDatum.Value.Date <= today &&
+                                p.BeginDatum.Value.Date <= todayInHolland && // Used corrected date
                                 p.Aantal > 0 &&
                                 p.IsAuctionable)
                     .Select(p => p.ProductID)
                     .ToList();
 
-                foreach (var id in validIds)
+                lock (_listLock) // Safety for queue list
                 {
-                    if (!_productQueue.Contains(id)) _productQueue.Add(id);
+                    foreach (var id in validIds)
+                    {
+                        if (!_productQueue.Contains(id)) _productQueue.Add(id);
+                    }
                 }
             }
         }
 
         public void RemoveFromQueue(int productId)
         {
-            if (_productQueue.Contains(productId))
+            lock (_listLock)
             {
-                _productQueue.Remove(productId);
+                if (_productQueue.Contains(productId))
+                {
+                    _productQueue.Remove(productId);
+                }
             }
         }
 
         public List<int> GetQueueIds()
         {
-            return new List<int>(_productQueue);
+            lock (_listLock)
+            {
+                return new List<int>(_productQueue);
+            }
         }
 
         public AuctionState? GetActiveAuction()
         {
-            return _activeAuctions.FirstOrDefault(a => a.IsRunning);
+            lock (_listLock)
+            {
+                return _activeAuctions.FirstOrDefault(a => a.IsRunning);
+            }
         }
 
         public async Task StartQueueAsync()
@@ -105,32 +131,49 @@ namespace backend.Services
         {
             if (!_isQueueRunning) return;
 
-            if (_productQueue.Count > 0)
+            int nextId = 0;
+            bool hasNext = false;
+
+            lock (_listLock)
             {
-                int nextId = _productQueue[0];
-                _productQueue.RemoveAt(0);
-                await StartAuctionAsync(nextId);
+                if (_productQueue.Count > 0)
+                {
+                    nextId = _productQueue[0];
+                    _productQueue.RemoveAt(0);
+                    hasNext = true;
+                }
+                else
+                {
+                    _isQueueRunning = false;
+                }
             }
-            else
+
+            if (hasNext)
             {
-                _isQueueRunning = false;
+                await StartAuctionAsync(nextId);
             }
         }
 
         public async Task StartAuctionAsync(int productId)
         {
-            var auction = _activeAuctions.FirstOrDefault(a => a.ProductId == productId);
-            if (auction == null)
-            {
-                auction = new AuctionState { ProductId = productId };
-                _activeAuctions.Add(auction);
-            }
+            AuctionState auction;
 
-            auction.IsRunning = true;
-            auction.IsSold = false;
-            auction.StartTime = DateTime.Now;
-            auction.BuyerName = null;
-            auction.FinalPrice = 0;
+            // FIX 2: Lock the list modification
+            lock (_listLock)
+            {
+                auction = _activeAuctions.FirstOrDefault(a => a.ProductId == productId);
+                if (auction == null)
+                {
+                    auction = new AuctionState { ProductId = productId };
+                    _activeAuctions.Add(auction);
+                }
+
+                auction.IsRunning = true;
+                auction.IsSold = false;
+                auction.StartTime = DateTime.Now;
+                auction.BuyerName = null;
+                auction.FinalPrice = 0;
+            }
 
             // 1. Fetch Start Price from DB
             decimal startPrijs = 0;
@@ -148,7 +191,7 @@ namespace backend.Services
 
             // 2. Initialize the in-memory current price
             auction.CurrentPrice = startPrijs;
-            auction.StartPrice = startPrijs; // Ensure StartPrice is set for the TickerService
+            auction.StartPrice = startPrijs; 
 
             // 3. Send SignalR update including startPrijs
             await _hub.Clients.All.SendAsync("ReceiveNewAuction", new
@@ -161,74 +204,78 @@ namespace backend.Services
 
         public AuctionState GetStatus(int productId)
         {
-            var auction = _activeAuctions.FirstOrDefault(a => a.ProductId == productId);
-            return auction ?? new AuctionState { ProductId = productId, IsRunning = false };
+            lock (_listLock)
+            {
+                var auction = _activeAuctions.FirstOrDefault(a => a.ProductId == productId);
+                return auction ?? new AuctionState { ProductId = productId, IsRunning = false };
+            }
         }
 
         public async Task<bool> PlaatsBod(int productId, string koperNaam, string koperId, int aantal)
         {
-            // Acquire lock to ensure atomic processing (prevents race conditions)
             await _semaphore.WaitAsync();
             try
             {
-                var auction = _activeAuctions.FirstOrDefault(a => a.ProductId == productId);
+                AuctionState? auction;
+                lock (_listLock)
+                {
+                    auction = _activeAuctions.FirstOrDefault(a => a.ProductId == productId);
+                }
 
-                // Check if auction is valid in memory
                 if (auction == null || !auction.IsRunning || auction.IsSold) return false;
 
-                // 1. Update Status in memory (Stop the clock immediately)
+                var duration = TimeSpan.FromSeconds(30);
+                var elapsed = DateTime.Now - auction.StartTime;
+
+                double progress = elapsed.TotalMilliseconds / duration.TotalMilliseconds;
+                progress = Math.Max(0, Math.Min(1, progress));
+
+                decimal start = auction.StartPrice;
+                decimal min = auction.MinPrice;
+                decimal exactPrijs = start - ((start - min) * (decimal)progress);
+                exactPrijs = Math.Round(exactPrijs, 2);
+
+                auction.CurrentPrice = exactPrijs;
+                auction.FinalPrice = exactPrijs;
+
                 auction.IsRunning = false;
                 auction.IsSold = true;
                 auction.BuyerName = koperNaam;
 
-                // SERVER AUTHORITY: Force the final price to be the internal current price
-                auction.FinalPrice = auction.CurrentPrice;
-
-                string sellerId = "";
-                string productName = "";
-
-                // 2. Database Operations
+                // Database logic
                 using (var scope = _scopeFactory.CreateScope())
                 {
                     var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-
                     var prod = await context.Producten.FindAsync(productId);
 
-                    // Validation: Product must exist and have enough stock
                     if (prod == null || prod.Aantal < aantal)
                     {
-                        // Rollback memory state if validation fails
                         auction.IsRunning = true;
                         auction.IsSold = false;
                         return false;
                     }
 
-                    sellerId = prod.VerkoperID ?? "";
-                    productName = prod.Naam;
-
-                    // Deduct Stock
                     prod.Aantal -= aantal;
+                    string sellerId = prod.VerkoperID ?? "";
+                    string productName = prod.Naam;
 
-                    // --- Handle Partial Sales ---
+                    // Restpartij logica
                     if (prod.Aantal > 0)
                     {
-                        // MODIFIED: Inject at index 0 to sell remaining stock immediately
-                        if (!_productQueue.Contains(productId))
+                        lock (_listLock)
                         {
-                            _productQueue.Insert(0, productId);
+                            if (!_productQueue.Contains(productId)) _productQueue.Insert(0, productId);
                         }
                     }
 
-                    // Veiling loggen (Permanent Receipt)
                     var veiling = new Veiling
                     {
                         ProductID = productId,
-                        // STRICT ENFORCEMENT: Use Server Price, not Client Price
                         VerkoopPrijs = (float)auction.FinalPrice,
                         Aantal = aantal,
                         StartDatumTijd = auction.StartTime,
-                        EindTijd = DateTime.Now - auction.StartTime,
-                        VerkoperID = prod.VerkoperID ?? "0",
+                        EindTijd = elapsed,
+                        VerkoperID = sellerId,
                         KoperId = koperId
                     };
                     context.Veilingen.Add(veiling);
@@ -238,28 +285,26 @@ namespace backend.Services
                         prod.IsAuctionable = false;
                         prod.Aantal = 0;
                     }
-
                     await context.SaveChangesAsync();
+
+                    await _hub.Clients.All.SendAsync("ReceiveAuctionResult", new
+                    {
+                        productId = productId,
+                        sold = true,
+                        buyer = koperNaam,
+                        price = auction.FinalPrice,
+                        amount = aantal,
+                        sellerId = sellerId,
+                        productName = productName
+                    });
                 }
 
-                // 3. SignalR Update (Live scherm)
-                await _hub.Clients.All.SendAsync("ReceiveAuctionResult", new
-                {
-                    productId = productId,
-                    sold = true,
-                    buyer = koperNaam,
-                    price = auction.FinalPrice, // Send enforced server price
-                    amount = aantal,
-                    sellerId = sellerId,
-                    productName = productName
-                });
-
-                // 4. Auto-Play Logic
+                // Auto-Play
+                // Check if queue is running OR force it if we have rest stock logic (optional, but stick to flag)
                 if (_isQueueRunning)
                 {
-                    _ = Task.Run(async () =>
-                    {
-                        await Task.Delay(10000); // Small delay to show result
+                    _ = Task.Run(async () => {
+                        await Task.Delay(5000);
                         await StartNextInQueue();
                     });
                 }
@@ -268,17 +313,19 @@ namespace backend.Services
             }
             finally
             {
-                // Always release the lock
                 _semaphore.Release();
             }
         }
 
         public async Task ForceNextAsync()
         {
-            var active = _activeAuctions.FirstOrDefault(a => a.IsRunning);
-            if (active != null)
+            lock (_listLock)
             {
-                active.IsRunning = false;
+                var active = _activeAuctions.FirstOrDefault(a => a.IsRunning);
+                if (active != null)
+                {
+                    active.IsRunning = false;
+                }
             }
             _isQueueRunning = true;
             await StartNextInQueue();
