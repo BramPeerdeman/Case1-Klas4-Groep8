@@ -311,9 +311,9 @@ namespace backend.Services
                         sellerId = sellerId,
                         productName = productName
                     });
+                    await _hub.Clients.All.SendAsync("RefreshProduct");
                 }
-
-                await _hub.Clients.All.SendAsync("RefreshProduct");
+                
                 // Auto-Play Logic
                 if (_isQueueRunning)
                 {
