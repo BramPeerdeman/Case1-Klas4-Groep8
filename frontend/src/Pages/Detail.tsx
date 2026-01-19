@@ -4,8 +4,10 @@ import { Container, Grid, Typography, Button, Box, Paper, Chip, CircularProgress
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import { getImageUrl } from "../Utils/ImageUtils"; 
+import { usePageTitle } from "../Hooks/usePageTitle";
 
 export default function Detail() {
+  usePageTitle("Product Detail");
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [product, setProduct] = useState<any>(null);
