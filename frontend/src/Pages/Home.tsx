@@ -51,32 +51,40 @@ export default function Home() {
 
   const baseUrl = import.meta.env.VITE_API_URL || "http://localhost:5299";
 
-  // 1. DATA LADEN
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        const prodRes = await fetch(`${baseUrl}/api/Product/products`);
-        const allProducts = await prodRes.json();
+  // --- HIER IS DE WIJZIGING: loadData staat nu LOS in de component ---
+  const loadData = async () => {
+    try {
+      const prodRes = await fetch(`${baseUrl}/api/Product/products`);
+      const allProducts = await prodRes.json();
 
-        // Sorteer: Nieuwste producten eerst
-        const sorted = allProducts.sort(
-          (a: any, b: any) => b.productID - a.productID
-        );
-        setProducts(sorted);
+      // Sorteer: Nieuwste producten eerst
+      const sorted = allProducts.sort(
+        (a: any, b: any) => b.productID - a.productID
+      );
+      setProducts(sorted);
 
-        const activeRes = await fetch(`${baseUrl}/api/Veiling/active`);
-        if (activeRes.ok) {
-          const auction = await activeRes.json();
-          setActiveAuction(auction);
-          const found = allProducts.find(
-            (p: any) => p.productID === auction.productId
-          );
-          setActiveProduct(found);
+      const activeRes = await fetch(`${baseUrl}/api/Veiling/active`);
+      if (activeRes.ok) {
+        const auction = await activeRes.json();
+        // Check of er wel data is (voorkom null errors)
+        if (auction) {
+            setActiveAuction(auction);
+            const found = allProducts.find(
+              (p: any) => p.productID === auction.productId
+            );
+            setActiveProduct(found);
+        } else {
+            setActiveAuction(null);
+            setActiveProduct(null);
         }
-      } catch (e) {
-        console.error(e);
       }
-    };
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  // 1. DATA LADEN (Roept nu de losse functie aan)
+  useEffect(() => {
     loadData();
   }, []);
 
@@ -96,16 +104,20 @@ export default function Home() {
     };
     startConnection();
 
+    // --- NIEUW: Luister naar het "RefreshProducts" signaal ---
+    connection.on("RefreshProducts", () => {
+        console.log("Verversen...");
+        loadData(); // <--- DIT ZORGT DAT DE LIJST UPDATE ZONDER F5!
+    });
+    // ---------------------------------------------------------
+
     connection.on("ReceiveNewAuction", (data: any) => {
       setActiveAuction({
         productId: data.productId,
         startTime: data.startTime,
       });
-      setProducts((current) => {
-        const found = current.find((p) => p.productID === data.productId);
-        if (found) setActiveProduct(found);
-        return current;
-      });
+      // We roepen voor de zekerheid ook hier loadData aan om alles synchroon te houden
+      loadData(); 
     });
 
     // Updated handler to remove sold items
@@ -115,12 +127,17 @@ export default function Home() {
       
       // Remove the sold item from the grid immediately
       setProducts((current) => current.filter(p => p.productID !== result.productId));
+      
+      // Voor de zekerheid ook even herladen na een paar seconden
+      setTimeout(() => loadData(), 1000);
     });
 
     return () => {
       connection.stop().catch((e) => console.error(e));
     };
   }, []);
+
+  // ... (rest van je filters en return blijven hetzelfde)
 
   // --- FILTERS & LOGICA ---
 
