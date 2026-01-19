@@ -216,28 +216,12 @@ namespace backend.Services
             await _semaphore.WaitAsync();
             try
             {
-                AuctionState? auction;
-                lock (_listLock)
-                {
-                    auction = _activeAuctions.FirstOrDefault(a => a.ProductId == productId);
-                }
+                var auction = _activeAuctions.FirstOrDefault(a => a.ProductId == productId);
 
+                // Check if auction is valid in memory
                 if (auction == null || !auction.IsRunning || auction.IsSold) return false;
 
-                var duration = TimeSpan.FromSeconds(30);
-                var elapsed = DateTime.Now - auction.StartTime;
-
-                double progress = elapsed.TotalMilliseconds / duration.TotalMilliseconds;
-                progress = Math.Max(0, Math.Min(1, progress));
-
-                decimal start = auction.StartPrice;
-                decimal min = auction.MinPrice;
-                decimal exactPrijs = start - ((start - min) * (decimal)progress);
-                exactPrijs = Math.Round(exactPrijs, 2);
-
-                auction.CurrentPrice = exactPrijs;
-                auction.FinalPrice = exactPrijs;
-
+                // 1. Update Status in memory (Stop the clock immediately)
                 auction.IsRunning = false;
                 auction.IsSold = true;
                 auction.BuyerName = koperNaam;
@@ -255,6 +239,10 @@ namespace backend.Services
                         return false;
                     }
 
+                    sellerId = prod.VerkoperID ?? "";
+                    productName = prod.Naam;
+
+                    // Deduct Stock
                     prod.Aantal -= aantal;
                     string sellerId = prod.VerkoperID ?? "";
                     string productName = prod.Naam;
@@ -262,15 +250,18 @@ namespace backend.Services
                     // Restpartij logica
                     if (prod.Aantal > 0)
                     {
-                        lock (_listLock)
+                        // MODIFIED: Inject at index 0 to sell remaining stock immediately
+                        if (!_productQueue.Contains(productId))
                         {
-                            if (!_productQueue.Contains(productId)) _productQueue.Insert(0, productId);
+                            _productQueue.Insert(0, productId);
                         }
                     }
 
+                    // Veiling loggen (Permanent Receipt)
                     var veiling = new Veiling
                     {
                         ProductID = productId,
+                        // STRICT ENFORCEMENT: Use Server Price, not Client Price
                         VerkoopPrijs = (float)auction.FinalPrice,
                         Aantal = aantal,
                         StartDatumTijd = auction.StartTime,
@@ -287,20 +278,19 @@ namespace backend.Services
                     }
                     await context.SaveChangesAsync();
 
-                    await _hub.Clients.All.SendAsync("ReceiveAuctionResult", new
-                    {
-                        productId = productId,
-                        sold = true,
-                        buyer = koperNaam,
-                        price = auction.FinalPrice,
-                        amount = aantal,
-                        sellerId = sellerId,
-                        productName = productName
-                    });
-                }
+                // 3. SignalR Update (Live scherm)
+                await _hub.Clients.All.SendAsync("ReceiveAuctionResult", new
+                {
+                    productId = productId,
+                    sold = true,
+                    buyer = koperNaam,
+                    price = auction.FinalPrice, // Send enforced server price
+                    amount = aantal,
+                    sellerId = sellerId,
+                    productName = productName
+                });
 
-                // Auto-Play
-                // Check if queue is running OR force it if we have rest stock logic (optional, but stick to flag)
+                // 4. Auto-Play Logic
                 if (_isQueueRunning)
                 {
                     _ = Task.Run(async () => {
