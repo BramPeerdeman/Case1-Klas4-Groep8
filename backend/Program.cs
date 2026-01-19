@@ -12,6 +12,7 @@ using Microsoft.OpenApi.Models;
 using System.Text;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
+using Microsoft.Extensions.FileProviders;
 
 Env.Load();
 
@@ -143,6 +144,27 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseStaticFiles();
+
+// 2. Uploads map expliciet serveren (zodat /uploads/plaatje.jpg werkt)
+var uploadPath = Path.Combine(builder.Environment.WebRootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot"), "uploads");
+
+// Zorg dat de map bestaat om crashes te voorkomen
+if (!Directory.Exists(uploadPath))
+{
+    Directory.CreateDirectory(uploadPath);
+}
+
+// Configureer ondersteuning voor extra bestandstypes (zoals .webp)
+var contentTypeProvider = new Microsoft.AspNetCore.StaticFiles.FileExtensionContentTypeProvider();
+contentTypeProvider.Mappings[".webp"] = "image/webp";
+
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(uploadPath),
+    RequestPath = "/uploads",
+    ContentTypeProvider = contentTypeProvider
+});
+
 app.UseRouting();
 app.UseCors();
 app.UseAuthentication();
