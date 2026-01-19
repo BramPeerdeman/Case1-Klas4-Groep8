@@ -34,7 +34,7 @@ public class AuthController : ControllerBase
     [HttpPost("register")]
     public async Task<IActionResult> Register([FromBody] RegisterDto registerDto)
     {
-        // 1. Controleer of de gebruiker (op basis van e-mail) al bestaat
+        //  Controleer of de gebruiker (op basis van e-mail) al bestaat
         var userByEmail = await _userManager.FindByEmailAsync(registerDto.Email);
     if (userByEmail != null)
     {
@@ -42,7 +42,7 @@ public class AuthController : ControllerBase
         return BadRequest("Een gebruiker met deze e-mail bestaat al.");
     }
 
-// 2. NIEUWE CHECK: Controleer of de GEBRUIKERSNAAM al bestaat
+//  NIEUWE CHECK: Controleer of de GEBRUIKERSNAAM al bestaat
     var userByUsername = await _userManager.FindByNameAsync(registerDto.Gebruikersnaam);
     if (userByUsername != null)
     {

@@ -7,6 +7,7 @@ import { useNotification } from "../Contexts/NotificationContext";
 import { useNavigate } from "react-router-dom";
 import ListIcon from '@mui/icons-material/List';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import { usePageTitle } from "../Hooks/usePageTitle";
 
 // Interface voor de state (exclusief het bestand zelf)
 interface NewProductForm {
@@ -22,6 +23,7 @@ interface NewProductForm {
 const LOCATIES = ["Aalsmeer", "Naaldwijk", "Rijnsburg", "Eelde", "Rhein Maas"];
 
 export default function VerkoperPage() {
+  usePageTitle("Verkoper Dashboard");
   const navigate = useNavigate();
   const { notify } = useNotification();
 

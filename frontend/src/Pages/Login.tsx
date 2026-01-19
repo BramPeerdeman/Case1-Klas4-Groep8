@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../Contexts/AuthContext";
 import { useUser } from "../Contexts/UserContext";
 import { jwtDecode } from "jwt-decode";
+import { usePageTitle } from "../Hooks/usePageTitle";
 
 interface JwtPayload {
   sub: string;
@@ -13,6 +14,7 @@ interface JwtPayload {
 }
 
 export default function Login() {
+  usePageTitle("Inloggen");
   const navigate = useNavigate();
   const { isLoggedIn, login } = useAuth(); // 'login' komt uit je context
   const [email, setEmail] = useState<string>("");

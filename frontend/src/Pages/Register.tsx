@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { Container, Box, TextField, Button, Typography, Card, CardContent, Select, MenuItem, InputLabel, FormControl } from "@mui/material";
 import { useNavigate } from "react-router-dom";
+import { usePageTitle } from "../Hooks/usePageTitle";
 
 export default function Register() {
+  usePageTitle("Inloggen");
   const navigate = useNavigate();
 
   // Lokaal pakt hij localhost, op Azure pakt hij de link uit .env.production

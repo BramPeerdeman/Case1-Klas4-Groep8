@@ -1,18 +1,18 @@
 import type { ReactNode } from "react";
-import { Navigate, Outlet } from "react-router-dom"; // Added Outlet
+import { Navigate, Outlet } from "react-router-dom"; 
 import { useAuth } from "../Contexts/AuthContext";
 import { CircularProgress, Box } from "@mui/material";
 
 interface ProtectedRouteProps { 
-  children?: ReactNode; // Made optional so you can use it as a layout wrapper
-  requiredRole?: 'admin' | 'veiler'; // Restrict to your specific roles
+  children?: ReactNode; 
+  requiredRole?: 'admin' | 'veiler'; 
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requiredRole }) => {
-  // 1. Grab the new isLoading and your existing flags
+  // checked of gebruiker ingelogd is en welke rol die heeft
   const { isLoggedIn, isLoading, isAdmin, isVeiler } = useAuth();
 
-  // 2. Show a spinner while checking LocalStorage
+  
   if (isLoading) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" height="100vh">

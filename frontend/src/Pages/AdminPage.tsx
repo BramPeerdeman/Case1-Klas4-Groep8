@@ -13,6 +13,7 @@ import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import UndoIcon from '@mui/icons-material/Undo';
 import { useNotification } from "../Contexts/NotificationContext";
 import { useNavigate } from "react-router-dom";
+import { usePageTitle } from "../Hooks/usePageTitle";
 
 interface Product {
   productID: number;
@@ -25,6 +26,7 @@ interface Product {
 }
 
 export default function AdminPage() {
+  usePageTitle("Veilingmeester Dashboard");
   const [newProducts, setNewProducts] = useState<Product[]>([]);
   const [scheduledProducts, setScheduledProducts] = useState<Product[]>([]); // ADDED: Scheduled products
   const [veilbareProducts, setVeilbareProducts] = useState<Product[]>([]);

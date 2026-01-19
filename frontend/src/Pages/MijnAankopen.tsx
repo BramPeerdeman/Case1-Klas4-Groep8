@@ -4,6 +4,7 @@ import EventIcon from '@mui/icons-material/Event';
 import EuroIcon from '@mui/icons-material/Euro';
 import ShoppingBagIcon from '@mui/icons-material/ShoppingBag';
 import { getImageUrl } from "../Utils/ImageUtils";
+import { usePageTitle } from "../Hooks/usePageTitle";
 
 // Updated interface to match Backend PurchaseHistoryDto
 interface Aankoop {
@@ -17,6 +18,7 @@ interface Aankoop {
 }
 
 export default function MijnAankopen() {
+  usePageTitle("Mijn Aankopen");
   const [aankopen, setAankopen] = useState<Aankoop[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");

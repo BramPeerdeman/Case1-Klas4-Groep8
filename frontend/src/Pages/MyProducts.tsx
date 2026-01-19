@@ -6,6 +6,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import AddIcon from '@mui/icons-material/Add';
 import { useNotification } from "../Contexts/NotificationContext";
 import * as signalR from "@microsoft/signalr";
+import { usePageTitle } from "../Hooks/usePageTitle";
 
 interface Product {
   productID: number;
@@ -19,6 +20,7 @@ interface Product {
 }
 
 export default function MyProducts() {
+  usePageTitle("Mijn Producten");
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
