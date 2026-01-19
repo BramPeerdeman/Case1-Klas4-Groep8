@@ -13,6 +13,8 @@ namespace backend.Data
         public DbSet<Product> Producten => Set<Product>();
         public DbSet<Veiling> Veilingen => Set<Veiling>();
 
+        public DbSet<Gebruiker> Gebruikers => Set<Gebruiker>();
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             
