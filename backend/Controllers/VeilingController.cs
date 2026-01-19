@@ -13,7 +13,7 @@ namespace backend.Controllers
         public int ProductId { get; set; }
         public string? BuyerName { get; set; }
         public string? BuyerId { get; set; }
-        public decimal Price { get; set; }
+        // Price removed as requested
         public int Aantal { get; set; } = 1; // Default to 1
     }
 
@@ -88,11 +88,10 @@ namespace backend.Controllers
         [HttpPost("koop")]
         public async Task<IActionResult> Koop([FromBody] KoopRequest request)
         {
-            // Pass the Aantal to the service
+            // Removed price parameter from the call
             bool gelukt = await _auctionService.PlaatsBod(
                 request.ProductId,
                 request.BuyerName,
-                request.Price,
                 request.BuyerId,
                 request.Aantal
             );
