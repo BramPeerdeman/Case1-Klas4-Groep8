@@ -71,8 +71,6 @@ namespace backend.Services
                 var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
                 
                 // FIX 1: Get 'Today' in Dutch Time (CET)
-                // If on Linux/Docker, use "Europe/Amsterdam", on Windows "W. Europe Standard Time"
-                // Using a safe fallback approach:
                 var utcNow = DateTime.UtcNow;
                 var cetZone = TimeZoneInfo.FindSystemTimeZoneById(Environment.OSVersion.Platform == PlatformID.Unix ? "Europe/Amsterdam" : "W. Europe Standard Time");
                 var todayInHolland = TimeZoneInfo.ConvertTimeFromUtc(utcNow, cetZone).Date;
@@ -80,7 +78,7 @@ namespace backend.Services
                 var validIds = context.Producten
                     .Where(p => productIds.Contains(p.ProductID) &&
                                 p.BeginDatum.HasValue &&
-                                p.BeginDatum.Value.Date <= todayInHolland && // Used corrected date
+                                p.BeginDatum.Value.Date <= todayInHolland &&
                                 p.Aantal > 0 &&
                                 p.IsAuctionable)
                     .Select(p => p.ProductID)
@@ -215,17 +213,40 @@ namespace backend.Services
             }
         }
 
+        // --- IMPLEMENTED PLAATSBOD LOGIC START ---
         public async Task<bool> PlaatsBod(int productId, string koperNaam, string koperId, int aantal)
         {
             await _semaphore.WaitAsync();
             try
             {
-                var auction = _activeAuctions.FirstOrDefault(a => a.ProductId == productId);
+                AuctionState? auction;
+                // FIX: Lock the list to safely find the auction
+                lock (_listLock)
+                {
+                    auction = _activeAuctions.FirstOrDefault(a => a.ProductId == productId);
+                }
 
-                // Check if auction is valid in memory
+                // Check if auction is valid
                 if (auction == null || !auction.IsRunning || auction.IsSold) return false;
 
-                // 1. Update Status in memory (Stop the clock immediately)
+                // --- RESTORED LOGIC START (Fixes 'elapsed' error) ---
+                var duration = TimeSpan.FromSeconds(30);
+                var elapsed = DateTime.Now - auction.StartTime; 
+
+                double progress = elapsed.TotalMilliseconds / duration.TotalMilliseconds;
+                progress = Math.Max(0, Math.Min(1, progress));
+
+                // Calculate price based on progress
+                decimal start = auction.StartPrice;
+                decimal min = auction.MinPrice;
+                decimal exactPrijs = start - ((start - min) * (decimal)progress);
+                exactPrijs = Math.Round(exactPrijs, 2);
+
+                // Update Memory State
+                auction.CurrentPrice = exactPrijs;
+                auction.FinalPrice = exactPrijs;
+                // --- RESTORED LOGIC END ---
+
                 auction.IsRunning = false;
                 auction.IsSold = true;
                 auction.BuyerName = koperNaam;
@@ -243,33 +264,34 @@ namespace backend.Services
                         return false;
                     }
 
-                    sellerId = prod.VerkoperID ?? "";
-                    productName = prod.Naam;
-
-                    // Deduct Stock
-                    prod.Aantal -= aantal;
+                    // FIX: Declare variables BEFORE using them
                     string sellerId = prod.VerkoperID ?? "";
                     string productName = prod.Naam;
 
-                    // Restpartij logica
+                    // Deduct Stock
+                    prod.Aantal -= aantal;
+
+                    // Restpartij logica (Add back to queue if stock remains)
                     if (prod.Aantal > 0)
                     {
-                        // MODIFIED: Inject at index 0 to sell remaining stock immediately
-                        if (!_productQueue.Contains(productId))
+                        lock (_listLock)
                         {
-                            _productQueue.Insert(0, productId);
+                            if (!_productQueue.Contains(productId))
+                            {
+                                // Priority insert at the front
+                                _productQueue.Insert(0, productId);
+                            }
                         }
                     }
 
-                    // Veiling loggen (Permanent Receipt)
+                    // Log the sale (Permanent Receipt)
                     var veiling = new Veiling
                     {
                         ProductID = productId,
-                        // STRICT ENFORCEMENT: Use Server Price, not Client Price
                         VerkoopPrijs = (float)auction.FinalPrice,
                         Aantal = aantal,
                         StartDatumTijd = auction.StartTime,
-                        EindTijd = elapsed,
+                        EindTijd = elapsed, // Now 'elapsed' exists!
                         VerkoperID = sellerId,
                         KoperId = koperId
                     };
@@ -282,19 +304,21 @@ namespace backend.Services
                     }
                     await context.SaveChangesAsync();
 
-                // 3. SignalR Update (Live scherm)
-                await _hub.Clients.All.SendAsync("ReceiveAuctionResult", new
-                {
-                    productId = productId,
-                    sold = true,
-                    buyer = koperNaam,
-                    price = auction.FinalPrice, // Send enforced server price
-                    amount = aantal,
-                    sellerId = sellerId,
-                    productName = productName
-                });
-
-                // 4. Auto-Play Logic
+                    // SignalR Update
+                    await _hub.Clients.All.SendAsync("ReceiveAuctionResult", new
+                    {
+                        productId = productId,
+                        sold = true,
+                        buyer = koperNaam,
+                        price = auction.FinalPrice,
+                        amount = aantal,
+                        sellerId = sellerId,
+                        productName = productName
+                    });
+                    await _hub.Clients.All.SendAsync("RefreshProduct");
+                }
+                
+                // Auto-Play Logic
                 if (_isQueueRunning)
                 {
                     _ = Task.Run(async () => {
@@ -310,6 +334,7 @@ namespace backend.Services
                 _semaphore.Release();
             }
         }
+        // --- IMPLEMENTED PLAATSBOD LOGIC END ---
 
         public async Task ForceNextAsync()
         {
