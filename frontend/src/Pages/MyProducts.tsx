@@ -187,15 +187,33 @@ export default function MyProducts() {
     
     connection.on("ReceiveAuctionResult", (data: any) => {
         setProducts(current => {
-            return current.map(p => {
+            return current.flatMap(p => {
+                // If this is the product being sold
                 if (p.productID === data.productId) {
                     const soldAmount = data.amount || 1;
-                    const newStock = (p.aantal || 0) - soldAmount;
-                    // Note: We do NOT filter it out (return null) like the old version.
-                    // We keep it with 0 stock so it automatically moves to the "Sold" tab.
-                    return { ...p, aantal: newStock };
+                    const remainingStock = (p.aantal || 0) - soldAmount;
+
+                    // 1. Create the new "Sold" entry for the UI immediately
+                    const soldEntry: Product = {
+                        ...p,
+                        productID: -Date.now(), // Temp negative ID until refresh
+                        aantal: soldAmount,
+                        koperID: data.buyer,
+                        minPrijs: data.price,
+                        isAuctionable: false
+                    };
+
+                    // 2. Update the original "Live" product stock
+                    const originalUpdated = {
+                        ...p,
+                        aantal: Math.max(0, remainingStock)
+                    };
+
+                    // If stock hits 0, the original stays but moves to "Sold" tab naturally.
+                    // If stock > 0, original stays in "Live", soldEntry goes to "Sold".
+                    return [originalUpdated, soldEntry];
                 }
-                return p;
+                return [p];
             });
         });
     });
