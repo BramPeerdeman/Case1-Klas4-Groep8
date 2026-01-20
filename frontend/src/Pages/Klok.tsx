@@ -131,8 +131,12 @@ export default function Klok() {
     });
 
     connectionRef.current = connection;
+
     return () => {
-      connection.stop();
+      // Only stop if connected to prevent errors
+      if (connection.state === signalR.HubConnectionState.Connected) {
+        connection.stop().catch(err => console.error("Error stopping connection:", err));
+      }
       stopClock();
     };
   }, [id, navigate]);
